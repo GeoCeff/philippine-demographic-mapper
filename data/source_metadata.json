@@ -1,0 +1,51 @@
+{
+  "created_for": "Demographic Map Maker MVP prototype",
+  "created_on": "2026-05-27",
+  "boundary_mode": "sample fixtures with data-pipeline scaffold",
+  "production_sources": [
+    {
+      "name": "PSA PSGC",
+      "url": "https://psa.gov.ph/classification/psgc/summary",
+      "purpose": "Official geography codes and hierarchy"
+    },
+    {
+      "name": "PSA PSGC API",
+      "url": "https://psa.gov.ph/classifications-api/psgc",
+      "purpose": "Programmatic PSGC lookup and version checks"
+    },
+    {
+      "name": "HDX/OCHA Philippines Subnational Administrative Boundaries",
+      "url": "https://data.humdata.org/dataset/caf116df-f984-4deb-85ca-41b349d3f313",
+      "purpose": "Admin 0-4 boundary geometry for production tile builds"
+    }
+  ],
+  "psgc_api": {
+    "base_url": "https://classification.psa.gov.ph/psgc",
+    "requires_token": true,
+    "documented_levels": [
+      "all",
+      "regions",
+      "provinces",
+      "municipalities",
+      "barangays"
+    ]
+  },
+  "pipeline_outputs": [
+    "data/generated/admin_boundaries.normalized.geojson",
+    "data/generated/admin_lookup.json",
+    "data/psgc_reconciliation_report.md"
+  ],
+  "caveat": "The current app still ships simplified sample polygons for display. The new data pipeline can normalize and reconcile local PSGC and boundary source files, but production map claims require running it against current official PSGC data and reviewed boundary geometry.",
+  "latest_pipeline_run": {
+    "generated_at": "2026-06-08T02:17:32.645Z",
+    "psgc_input": "tools/fixtures/psgc_sample.csv",
+    "boundary_input": "tools/fixtures/boundaries_sample.geojson",
+    "normalized_boundaries": "data/generated/admin_boundaries.normalized.geojson",
+    "lookup": "data/generated/admin_lookup.json",
+    "psgc_records": 8,
+    "boundary_records": 8,
+    "matched_records": 7,
+    "psgc_only_records": 1,
+    "boundary_only_records": 1
+  }
+}

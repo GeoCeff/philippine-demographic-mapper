@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Demographic Map Maker</title>
+    <link rel="stylesheet" href="styles.css">
+    <script src="src/app.js" defer></script>
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar" aria-label="Map controls">
+        <div class="brand">
+          <span class="brand-mark" aria-hidden="true"></span>
+          <div>
+            <h1>Demographic Map Maker</h1>
+            <p>Philippine choropleth studio</p>
+          </div>
+        </div>
+
+        <section class="panel">
+          <h2>Geography</h2>
+          <label class="field">
+            <span>Scope</span>
+            <select id="scopeSelect"></select>
+          </label>
+          <label class="field">
+            <span>Map level</span>
+            <select id="levelSelect"></select>
+          </label>
+          <div class="segmented" role="group" aria-label="Layer visibility">
+            <button id="fitMapButton" type="button">Fit</button>
+            <button id="clearSelectionButton" type="button">Clear</button>
+          </div>
+          <p id="densityNote" class="note"></p>
+        </section>
+
+        <section class="panel">
+          <h2>Data</h2>
+          <label class="file-drop">
+            <span>Import CSV</span>
+            <input id="csvInput" type="file" accept=".csv,text/csv">
+          </label>
+          <div class="sample-row" aria-label="Sample datasets">
+            <button id="loadRegionSample" type="button">Region sample</button>
+            <button id="loadProvinceSample" type="button">Province sample</button>
+            <button id="loadBarangaySample" type="button">Barangay sample</button>
+          </div>
+          <label class="field">
+            <span>PSGC column</span>
+            <select id="keyColumnSelect"></select>
+          </label>
+          <label class="field">
+            <span>Value column</span>
+            <select id="valueColumnSelect"></select>
+          </label>
+          <div id="matchSummary" class="summary-grid"></div>
+        </section>
+
+        <section class="panel">
+          <h2>Style</h2>
+          <label class="field">
+            <span>Palette</span>
+            <select id="paletteSelect"></select>
+          </label>
+          <label class="field">
+            <span>Classification</span>
+            <select id="classificationSelect">
+              <option value="equal">Equal interval</option>
+              <option value="quantile">Quantile</option>
+              <option value="continuous">Continuous</option>
+              <option value="highlight">Highlight only</option>
+            </select>
+          </label>
+          <label class="field inline-field">
+            <span>Bins</span>
+            <input id="binsInput" type="range" min="3" max="7" value="5">
+            <output id="binsOutput">5</output>
+          </label>
+          <label class="field inline-field">
+            <span>Border</span>
+            <input id="borderColorInput" type="color" value="#ffffff">
+            <input id="borderWidthInput" type="number" min="0" max="8" step="0.25" value="1.5">
+          </label>
+          <label class="field inline-field">
+            <span>Missing</span>
+            <input id="missingColorInput" type="color" value="#e8ebe6">
+            <input id="highlightColorInput" type="color" value="#f05a41">
+          </label>
+          <label class="field inline-field">
+            <span>Background</span>
+            <input id="backgroundColorInput" type="color" value="#f6f7f5">
+            <label class="toggle"><input id="transparentInput" type="checkbox"> Transparent</label>
+          </label>
+        </section>
+
+        <section class="panel">
+          <h2>Export</h2>
+          <div class="export-grid">
+            <label class="field">
+              <span>Width</span>
+              <input id="exportWidthInput" type="number" min="640" max="5000" step="10" value="1600">
+            </label>
+            <label class="field">
+              <span>Height</span>
+              <input id="exportHeightInput" type="number" min="640" max="5000" step="10" value="2000">
+            </label>
+          </div>
+          <div class="segmented" role="group" aria-label="Export presets">
+            <button data-preset="square" type="button">1:1</button>
+            <button data-preset="portrait" type="button">4:5</button>
+            <button data-preset="report" type="button">Report</button>
+          </div>
+          <div class="action-row">
+            <button id="exportPngButton" class="primary-button" type="button">Export PNG</button>
+            <button id="saveProjectButton" type="button">Save JSON</button>
+            <button id="loadProjectButton" type="button">Load JSON</button>
+          </div>
+          <input id="projectInput" type="file" accept=".json,application/json" hidden>
+        </section>
+      </aside>
+
+      <main class="workspace">
+        <header class="topbar">
+          <div>
+            <p id="activePath" class="eyebrow">Philippines / Region</p>
+            <h2 id="mapTitle">Untitled demographic map</h2>
+          </div>
+          <div class="status-pill" id="sourceStatus">Sample boundary fixtures</div>
+        </header>
+
+        <section class="canvas-layout">
+          <div class="map-stage" id="mapStage">
+            <svg id="mapSvg" role="img" aria-labelledby="mapTitle" preserveAspectRatio="xMidYMid meet"></svg>
+            <div id="mapTooltip" class="tooltip" hidden></div>
+          </div>
+
+          <aside class="inspector" aria-label="Map details">
+            <section>
+              <h2>Selection</h2>
+              <div id="selectionDetails" class="selection-details"></div>
+            </section>
+            <section>
+              <h2>Legend</h2>
+              <div id="legend"></div>
+            </section>
+            <section>
+              <h2>Match Review</h2>
+              <div id="reviewTable"></div>
+            </section>
+          </aside>
+        </section>
+      </main>
+    </div>
+  </body>
+</html>

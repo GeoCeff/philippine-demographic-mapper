@@ -1,0 +1,125 @@
+{
+  "type": "FeatureCollection",
+  "name": "sample_admin_boundaries",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "psgc_code": "1300000000",
+        "name": "National Capital Region",
+        "level": "region",
+        "region_code": "1300000000",
+        "source_version": "sample"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[[120.84, 14.35], [121.18, 14.35], [121.18, 14.86], [120.84, 14.86], [120.84, 14.35]]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "psgc_code": "0700000000",
+        "name": "Central Visayas",
+        "level": "region",
+        "region_code": "0700000000",
+        "source_version": "sample"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[[123.35, 9.35], [124.6, 9.35], [124.6, 11.45], [123.35, 11.45], [123.35, 9.35]]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "psgc_code": "0722000000",
+        "name": "Cebu",
+        "level": "province",
+        "region_code": "0700000000",
+        "province_code": "0722000000",
+        "source_version": "sample"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[[123.52, 9.45], [124.08, 9.58], [124.16, 11.25], [123.68, 11.33], [123.52, 9.45]]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "psgc_code": "1374040000",
+        "name": "Quezon City",
+        "level": "city",
+        "region_code": "1300000000",
+        "city_municipality_code": "1374040000",
+        "source_version": "sample"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[[120.96, 14.59], [121.12, 14.59], [121.12, 14.78], [120.96, 14.78], [120.96, 14.59]]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "psgc_code": "0722170000",
+        "name": "Cebu City",
+        "level": "city",
+        "region_code": "0700000000",
+        "province_code": "0722000000",
+        "city_municipality_code": "0722170000",
+        "source_version": "sample"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[[123.78, 10.24], [123.98, 10.24], [123.98, 10.48], [123.78, 10.48], [123.78, 10.24]]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "psgc_code": "1374040001",
+        "name": "Batasan Hills",
+        "level": "barangay",
+        "region_code": "1300000000",
+        "city_municipality_code": "1374040000",
+        "source_version": "sample"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[[121.07, 14.67], [121.1, 14.67], [121.1, 14.7], [121.07, 14.7], [121.07, 14.67]]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "psgc_code": "1374040002",
+        "name": "Commonwealth",
+        "level": "barangay",
+        "region_code": "1300000000",
+        "city_municipality_code": "1374040000",
+        "source_version": "sample"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[[121.04, 14.66], [121.07, 14.66], [121.07, 14.7], [121.04, 14.7], [121.04, 14.66]]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "psgc_code": "9999999999",
+        "name": "Boundary Only Demo",
+        "level": "barangay",
+        "region_code": "1300000000",
+        "city_municipality_code": "1374040000",
+        "source_version": "sample"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[[121.01, 14.63], [121.03, 14.63], [121.03, 14.65], [121.01, 14.65], [121.01, 14.63]]]
+      }
+    }
+  ]
+}

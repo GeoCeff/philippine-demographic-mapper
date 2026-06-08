@@ -1,0 +1,9 @@
+psgc_code,area_name,geographic_level,region_code,province_code,city_municipality_code,version
+1300000000,National Capital Region,region,1300000000,,,sample
+0700000000,Central Visayas,region,0700000000,,,sample
+0722000000,Cebu,province,0700000000,0722000000,,sample
+1374040000,Quezon City,city,1300000000,,1374040000,sample
+0722170000,Cebu City,city,0700000000,0722000000,0722170000,sample
+1374040001,Batasan Hills,barangay,1300000000,,1374040000,sample
+1374040002,Commonwealth,barangay,1300000000,,1374040000,sample
+1374040003,Payatas,barangay,1300000000,,1374040000,sample
