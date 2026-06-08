@@ -37,7 +37,7 @@
   ],
   "caveat": "The current app still ships simplified sample polygons for display. The new data pipeline can normalize and reconcile local PSGC and boundary source files, but production map claims require running it against current official PSGC data and reviewed boundary geometry.",
   "latest_pipeline_run": {
-    "generated_at": "2026-06-08T02:17:32.645Z",
+    "generated_at": "2026-06-08T02:24:49.608Z",
     "psgc_input": "tools/fixtures/psgc_sample.csv",
     "boundary_input": "tools/fixtures/boundaries_sample.geojson",
     "normalized_boundaries": "data/generated/admin_boundaries.normalized.geojson",
