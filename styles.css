@@ -47,6 +47,11 @@ button {
   cursor: pointer;
 }
 
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
 button:hover,
 select:hover,
 input[type="file"]::file-selector-button:hover {
@@ -208,7 +213,7 @@ input[type="color"] {
 
 .summary-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 8px;
 }
 
@@ -380,8 +385,22 @@ input[type="color"] {
   font-size: 0.78rem;
 }
 
+#reviewTable {
+  overflow-x: auto;
+}
+
+.review-heading {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 10px;
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
 .review-table {
   width: 100%;
+  min-width: 640px;
   margin-top: 10px;
   border-collapse: collapse;
   font-size: 0.82rem;
@@ -405,6 +424,40 @@ input[type="color"] {
   color: #445044;
   font-family: "Cascadia Mono", Consolas, monospace;
   font-size: 0.78rem;
+}
+
+.review-row-error {
+  background: #fff7f4;
+}
+
+.review-row-warn {
+  background: #fffaf0;
+}
+
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding: 0 7px;
+  border-radius: 999px;
+  white-space: nowrap;
+  font-size: 0.74rem;
+  font-weight: 700;
+}
+
+.status-ok {
+  background: #e8f4ed;
+  color: #14613a;
+}
+
+.status-warn {
+  background: #fff0cc;
+  color: #75510c;
+}
+
+.status-error {
+  background: #ffe1da;
+  color: #8b2b1f;
 }
 
 .empty-state {

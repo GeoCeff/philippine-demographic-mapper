@@ -57,6 +57,47 @@ function saveProject() {
   downloadBlob(new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" }), `${slugify(state.projectName)}.json`);
 }
 
+function exportImportIssues() {
+  const join = buildJoin();
+  if (!join.issueRows.length) return;
+
+  const metadataHeaders = [
+    "_issue_type",
+    "_status",
+    "_severity",
+    "_row_number",
+    "_psgc_code",
+    "_input_name",
+    "_value",
+    "_matched_name",
+    "_detail",
+    "_scope",
+    "_map_level"
+  ];
+  const originalHeaders = state.columns.filter((column) => !metadataHeaders.includes(column));
+  const headers = [...metadataHeaders, ...originalHeaders];
+  const scope = getScope();
+  const rows = join.issueRows.map((issue) => ({
+    _issue_type: issue.type,
+    _status: issue.status,
+    _severity: issue.severity,
+    _row_number: issue.rowNumber,
+    _psgc_code: issue.code,
+    _input_name: issue.inputName,
+    _value: issue.valueText,
+    _matched_name: issue.matchedName,
+    _detail: issue.detail,
+    _scope: scope.name,
+    _map_level: state.level,
+    ...issue.row
+  }));
+
+  downloadBlob(
+    new Blob([`${rowsToCsv(headers, rows)}\n`], { type: "text/csv;charset=utf-8" }),
+    `${slugify(state.projectName || "demographic-map")}-match-issues.csv`
+  );
+}
+
 async function loadProject(event) {
   const file = event.target.files[0];
   if (!file) return;

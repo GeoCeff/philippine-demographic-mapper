@@ -24,6 +24,7 @@ function cacheElements() {
     "keyColumnSelect",
     "valueColumnSelect",
     "matchSummary",
+    "exportIssuesButton",
     "paletteSelect",
     "classificationSelect",
     "binsInput",
@@ -191,6 +192,7 @@ function bindEvents() {
   });
 
   el.exportPngButton.addEventListener("click", exportPng);
+  el.exportIssuesButton.addEventListener("click", exportImportIssues);
   el.saveProjectButton.addEventListener("click", saveProject);
   el.loadProjectButton.addEventListener("click", () => el.projectInput.click());
   el.projectInput.addEventListener("change", loadProject);
@@ -244,6 +246,7 @@ function syncControls() {
   el.transparentInput.checked = state.transparent;
   el.exportWidthInput.value = state.exportWidth;
   el.exportHeightInput.value = state.exportHeight;
+  el.exportIssuesButton.disabled = buildJoin().issueRows.length === 0;
 }
 
 function syncColumnSelect(select, selected) {
@@ -413,8 +416,9 @@ function renderMatchSummary() {
   const join = buildJoin();
   el.matchSummary.innerHTML = [
     ["Rows", state.importedRows.length],
+    ["Mapped", join.mappedRows.length],
     ["Matched", join.matchedRows.length],
-    ["Unmatched", join.unmatchedRows.length]
+    ["Issues", join.issueRows.length]
   ]
     .map(([label, value]) => `<div class="summary-item"><strong>${value}</strong><span>${label}</span></div>`)
     .join("");
@@ -422,17 +426,27 @@ function renderMatchSummary() {
 
 function renderReviewTable() {
   const join = buildJoin();
-  const matched = join.matchedRows.slice(0, 4).map((item) => ({
-    status: "Matched",
+  const issues = join.issueRows.map((item) => ({
+    status: item.status,
+    severity: item.severity,
     code: item.code,
-    name: item.feature.name
+    rowNumber: item.rowNumber,
+    inputName: item.inputName,
+    matchedName: item.matchedName,
+    valueText: item.valueText,
+    detail: item.detail
   }));
-  const unmatched = join.unmatchedRows.slice(0, 4).map((row) => ({
-    status: "Unmatched",
-    code: normalizeCode(row[state.keyColumn]),
-    name: row.name || row.Name || ""
+  const matched = join.matchedRows.slice(0, Math.max(0, 12 - issues.length)).map((item) => ({
+    status: Number.isFinite(item.value) ? "Mapped" : "Matched",
+    severity: Number.isFinite(item.value) ? "ok" : "warn",
+    code: item.code,
+    rowNumber: item.rowNumber,
+    inputName: getImportedName(item.row),
+    matchedName: item.feature.name,
+    valueText: Number.isFinite(item.value) ? formatNumber(item.value) : "",
+    detail: Number.isFinite(item.value) ? "Ready for map styling." : "Geography matched, but the value is blank or non-numeric."
   }));
-  const rows = [...matched, ...unmatched];
+  const rows = [...issues, ...matched].slice(0, 18);
 
   if (!state.importedRows.length) {
     el.reviewTable.innerHTML = `<p class="empty-state">No imported rows.</p>`;
@@ -440,20 +454,25 @@ function renderReviewTable() {
   }
 
   if (!rows.length) {
-    el.reviewTable.innerHTML = `<p class="empty-state">Imported rows do not match the selected map level.</p>`;
+    el.reviewTable.innerHTML = `<p class="empty-state">No import rows to review.</p>`;
     return;
   }
 
   el.reviewTable.innerHTML = `
+    <div class="review-heading">
+      <span>${join.issueRows.length ? `${join.issueRows.length} issue${join.issueRows.length === 1 ? "" : "s"} found` : "All imported rows are clean for this scope"}</span>
+      <span>${join.unmatchedRows.length} unmatched</span>
+    </div>
     <table class="review-table">
-      <thead><tr><th>Status</th><th>PSGC</th><th>Name</th></tr></thead>
+      <thead><tr><th>Row</th><th>Status</th><th>PSGC</th><th>Input</th><th>Matched</th><th>Note</th></tr></thead>
       <tbody>
         ${rows
           .map(
-            (row) => `<tr><td>${row.status}</td><td><code>${escapeHtml(row.code || "-")}</code></td><td>${escapeHtml(row.name || "-")}</td></tr>`
+            (row) => `<tr class="review-row review-row-${escapeAttr(row.severity)}"><td>${row.rowNumber}</td><td><span class="status-badge status-${escapeAttr(row.severity)}">${escapeHtml(row.status)}</span></td><td><code>${escapeHtml(row.code || "-")}</code></td><td>${escapeHtml(row.inputName || "-")}</td><td>${escapeHtml(row.matchedName || "-")}</td><td>${escapeHtml(row.detail || "-")}</td></tr>`
           )
           .join("")}
       </tbody>
     </table>
+    ${join.issueRows.length > rows.filter((row) => row.severity !== "ok").length ? `<p class="empty-state">Export issues CSV to review all problem rows.</p>` : ""}
   `;
 }

@@ -8,6 +8,8 @@ All notable changes to this project will be documented here.
 
 - Split the browser app monolith into focused classic-script modules for data fixtures, state, CSV parsing, matching, classification, render helpers, export/project persistence, and shared utilities.
 - Updated `npm run check` so syntax validation covers every source module.
+- Improved CSV import review with duplicate-code warnings, wrong-level detection, parent-scope validation, non-numeric value warnings, clearer issue rows, and issue CSV export.
+- Added a smoke test for import matching behavior.
 
 ## 0.1.0 - 2026-06-08
 

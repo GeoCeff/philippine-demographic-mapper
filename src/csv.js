@@ -62,3 +62,16 @@ function parseValue(value) {
   const number = Number(String(value).replace(/,/g, "").replace(/%$/, ""));
   return Number.isFinite(number) ? number : NaN;
 }
+
+function rowsToCsv(headers, rows) {
+  return [
+    headers.map(csvEscape).join(","),
+    ...rows.map((row) => headers.map((header) => csvEscape(row[header])).join(","))
+  ].join("\n");
+}
+
+function csvEscape(value) {
+  const text = String(value ?? "");
+  if (!/[",\r\n]/.test(text)) return text;
+  return `"${text.replace(/"/g, "\"\"")}"`;
+}

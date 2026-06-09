@@ -6,6 +6,7 @@ const files = [
   "server.mjs",
   "tools/data-pipeline.mjs",
   "tools/check-syntax.mjs",
+  "tools/smoke-test.mjs",
   ...(await listJsFiles("src"))
 ];
 

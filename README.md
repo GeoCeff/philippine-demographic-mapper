@@ -16,7 +16,7 @@ Important caveat: the visible map in the app currently uses simplified sample po
 - Region, province, city/municipality, and sample barangay map levels.
 - Scope picker for national, regional, provincial, and city-focused views.
 - CSV import using PSGC code joins.
-- Match summary and match review panel.
+- Match summary and match review panel with duplicate-code warnings, wrong-level checks, parent-scope validation, value checks, and issue CSV export.
 - Choropleth palettes, classification modes, border styling, missing-data styling, and highlight color.
 - PNG export with square, portrait, and report-size presets.
 - Project JSON save and load.
@@ -140,7 +140,7 @@ npm run check
 - Add production PSGC download/import workflow.
 - Convert shapefile or GeoPackage sources into GeoJSON/PMTiles.
 - Move interactive rendering to MapLibre + vector tiles for full barangay performance.
-- Add fuzzy name matching with parent-geography review.
+- Add fuzzy name matching after PSGC-code joins and parent-scope validation are reliable.
 - Add export templates, labels, callouts, and inset support.
 - Add automated browser and export-image tests.
 
