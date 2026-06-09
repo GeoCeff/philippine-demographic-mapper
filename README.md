@@ -102,7 +102,15 @@ The HDX/OCHA boundary metadata describes the geometry as indicative rather than 
 ├── index.html
 ├── styles.css
 ├── src/
-│   └── app.js
+│   ├── app.js
+│   ├── classification.js
+│   ├── csv.js
+│   ├── data.js
+│   ├── export.js
+│   ├── matching.js
+│   ├── render-utils.js
+│   ├── state.js
+│   └── utils.js
 ├── tools/
 │   ├── data-pipeline.mjs
 │   ├── fixtures/
@@ -128,7 +136,7 @@ npm run check
 
 ## Roadmap
 
-- Replace display fixtures with normalized generated boundaries.
+- Replace display fixtures in `src/data.js` with normalized generated boundaries.
 - Add production PSGC download/import workflow.
 - Convert shapefile or GeoPackage sources into GeoJSON/PMTiles.
 - Move interactive rendering to MapLibre + vector tiles for full barangay performance.

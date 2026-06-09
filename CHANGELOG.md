@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented here.
 
+## Unreleased
+
+### Changed
+
+- Split the browser app monolith into focused classic-script modules for data fixtures, state, CSV parsing, matching, classification, render helpers, export/project persistence, and shared utilities.
+- Updated `npm run check` so syntax validation covers every source module.
+
 ## 0.1.0 - 2026-06-08
 
 ### Added
