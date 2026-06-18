@@ -148,14 +148,27 @@ p {
 
 select,
 input[type="number"],
+input[type="text"],
 input[type="color"] {
   width: 100%;
   min-height: 38px;
 }
 
+textarea {
+  width: 100%;
+}
+
 select,
-input[type="number"] {
+input[type="number"],
+input[type="text"],
+textarea {
   padding: 0 10px;
+}
+
+textarea {
+  min-height: 58px;
+  padding-top: 8px;
+  resize: vertical;
 }
 
 input[type="color"] {

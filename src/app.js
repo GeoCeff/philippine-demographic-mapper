@@ -37,6 +37,10 @@ function cacheElements() {
     "highlightColorInput",
     "backgroundColorInput",
     "transparentInput",
+    "layoutTitleInput",
+    "layoutSubtitleInput",
+    "sourceNoteInput",
+    "showLayoutTextInput",
     "exportWidthInput",
     "exportHeightInput",
     "exportPngButton",
@@ -175,6 +179,25 @@ function bindEvents() {
     render();
   });
 
+  [
+    ["layoutTitleInput", "layoutTitle"],
+    ["layoutSubtitleInput", "layoutSubtitle"],
+    ["sourceNoteInput", "sourceNote"]
+  ].forEach(([inputId, key]) => {
+    el[inputId].addEventListener("input", () => {
+      state[key] = el[inputId].value;
+      if (key === "layoutTitle") {
+        state.projectName = el[inputId].value || "Untitled demographic map";
+      }
+      render();
+    });
+  });
+
+  el.showLayoutTextInput.addEventListener("change", () => {
+    state.showLayoutText = el.showLayoutTextInput.checked;
+    render();
+  });
+
   el.exportWidthInput.addEventListener("input", () => {
     state.exportWidth = clamp(Number(el.exportWidthInput.value), 640, 5000);
   });
@@ -212,6 +235,9 @@ function bindEvents() {
 function parseImportedCsv(text, overrides = {}) {
   const parsed = parseCsv(text);
   Object.assign(state, overrides);
+  if (overrides.projectName) {
+    state.layoutTitle = overrides.projectName;
+  }
   state.importedRows = parsed.rows;
   state.columns = parsed.columns;
   state.keyColumn = chooseColumn(parsed.columns, ["psgc_code", "psgc", "code"], parsed.columns[0] || "psgc_code");
@@ -257,6 +283,10 @@ function syncControls() {
   el.highlightColorInput.value = state.highlightColor;
   el.backgroundColorInput.value = state.backgroundColor;
   el.transparentInput.checked = state.transparent;
+  el.layoutTitleInput.value = state.layoutTitle;
+  el.layoutSubtitleInput.value = state.layoutSubtitle;
+  el.sourceNoteInput.value = state.sourceNote;
+  el.showLayoutTextInput.checked = state.showLayoutText;
   el.exportWidthInput.value = state.exportWidth;
   el.exportHeightInput.value = state.exportHeight;
   el.exportIssuesButton.disabled = buildJoin().issueRows.length === 0;
@@ -294,11 +324,13 @@ function renderMap() {
   const scale = buildScale(visibleFeatures, join.valueByCode);
   const bounds = boundsFromFeatures(visibleFeatures);
   const padding = Math.max(28, Math.min(bounds.width, bounds.height) * 0.08);
+  const titlePad = state.showLayoutText ? Math.max(52, bounds.height * 0.12) : 0;
+  const notePad = state.showLayoutText ? Math.max(40, bounds.height * 0.08) : 0;
   const viewBox = [
     bounds.minX - padding,
-    bounds.minY - padding,
+    bounds.minY - padding - titlePad,
     Math.max(1, bounds.width + padding * 2),
-    Math.max(1, bounds.height + padding * 2)
+    Math.max(1, bounds.height + padding * 2 + titlePad + notePad)
   ];
 
   el.mapSvg.setAttribute("viewBox", viewBox.join(" "));
@@ -326,6 +358,10 @@ function renderMap() {
     text.textContent = "No features in this scope";
     el.mapSvg.appendChild(text);
     return;
+  }
+
+  if (state.showLayoutText) {
+    renderLayoutText(viewBox);
   }
 
   const shadow = createSvgElement("path", {
@@ -374,6 +410,54 @@ function renderMap() {
     group.addEventListener("mouseleave", hideTooltip);
     el.mapSvg.appendChild(group);
   });
+}
+
+function renderLayoutText(viewBox) {
+  const [x, y, width, height] = viewBox;
+  const left = x + width * 0.045;
+  const right = x + width * 0.955;
+  const titleY = y + Math.max(24, height * 0.045);
+  const titleSize = clamp(width * 0.038, 18, 42);
+  const subtitleSize = clamp(width * 0.018, 10, 20);
+  const noteSize = clamp(width * 0.014, 8, 15);
+
+  if (state.layoutTitle.trim()) {
+    const title = createSvgElement("text", {
+      x: left,
+      y: titleY,
+      fill: "#20231f",
+      "font-size": titleSize,
+      "font-weight": 800,
+      "font-family": "Inter, Segoe UI, Arial, sans-serif"
+    });
+    title.textContent = state.layoutTitle.trim();
+    el.mapSvg.appendChild(title);
+  }
+
+  if (state.layoutSubtitle.trim()) {
+    const subtitle = createSvgElement("text", {
+      x: left,
+      y: titleY + titleSize * 0.82,
+      fill: "#667066",
+      "font-size": subtitleSize,
+      "font-family": "Inter, Segoe UI, Arial, sans-serif"
+    });
+    subtitle.textContent = state.layoutSubtitle.trim();
+    el.mapSvg.appendChild(subtitle);
+  }
+
+  if (state.sourceNote.trim()) {
+    const note = createSvgElement("text", {
+      x: right,
+      y: y + height - Math.max(16, height * 0.028),
+      fill: "#667066",
+      "font-size": noteSize,
+      "text-anchor": "end",
+      "font-family": "Inter, Segoe UI, Arial, sans-serif"
+    });
+    note.textContent = state.sourceNote.trim();
+    el.mapSvg.appendChild(note);
+  }
 }
 
 function renderSelection() {

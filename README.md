@@ -19,7 +19,7 @@ Important caveat: the visible map in the app currently uses simplified sample po
 - CSV import using PSGC code joins.
 - Match summary and match review panel with duplicate-code warnings, wrong-level checks, parent-scope validation, value checks, and issue CSV export.
 - Choropleth palettes, classification modes, border styling, missing-data styling, and highlight color.
-- PNG export with square, portrait, and report-size presets.
+- PNG export with square, portrait, and report-size presets plus optional title, subtitle, and source note.
 - Project JSON save and load.
 - PSGC/boundary reconciliation pipeline scaffold.
 - Generated normalized boundary GeoJSON, lookup JSON, and reconciliation report.
@@ -143,7 +143,7 @@ npm run check
 - Convert shapefile or GeoPackage sources into GeoJSON/PMTiles.
 - Move interactive rendering to MapLibre + vector tiles for full barangay performance.
 - Add fuzzy name matching after PSGC-code joins and parent-scope validation are reliable.
-- Add export templates, labels, callouts, and inset support.
+- Add richer export templates, labels, callouts, and inset support.
 - Add automated browser and export-image tests.
 
 ## Contributing
