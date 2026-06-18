@@ -10,6 +10,7 @@ All notable changes to this project will be documented here.
 - Updated `npm run check` so syntax validation covers every source module.
 - Improved CSV import review with duplicate-code warnings, wrong-level detection, parent-scope validation, non-numeric value warnings, clearer issue rows, and issue CSV export.
 - Added a smoke test for import matching behavior.
+- Added a boundary-source selector and normalized GeoJSON renderer bridge so the SVG map can use generated pipeline output as well as built-in fixtures.
 
 ## 0.1.0 - 2026-06-08
 

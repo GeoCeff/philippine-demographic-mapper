@@ -14,6 +14,7 @@ Important caveat: the visible map in the app currently uses simplified sample po
 
 - Local static web app with no dependency install required.
 - Region, province, city/municipality, and sample barangay map levels.
+- Boundary source selector for built-in SVG fixtures or generated normalized GeoJSON.
 - Scope picker for national, regional, provincial, and city-focused views.
 - CSV import using PSGC code joins.
 - Match summary and match review panel with duplicate-code warnings, wrong-level checks, parent-scope validation, value checks, and issue CSV export.
@@ -103,6 +104,7 @@ The HDX/OCHA boundary metadata describes the geometry as indicative rather than 
 ├── styles.css
 ├── src/
 │   ├── app.js
+│   ├── boundary-loader.js
 │   ├── classification.js
 │   ├── csv.js
 │   ├── data.js
@@ -136,7 +138,7 @@ npm run check
 
 ## Roadmap
 
-- Replace display fixtures in `src/data.js` with normalized generated boundaries.
+- Expand generated boundary rendering beyond the current normalized GeoJSON bridge toward PMTiles/vector tiles.
 - Add production PSGC download/import workflow.
 - Convert shapefile or GeoPackage sources into GeoJSON/PMTiles.
 - Move interactive rendering to MapLibre + vector tiles for full barangay performance.

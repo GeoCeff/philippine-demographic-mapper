@@ -8,6 +8,7 @@
     <script src="src/data.js" defer></script>
     <script src="src/state.js" defer></script>
     <script src="src/utils.js" defer></script>
+    <script src="src/boundary-loader.js" defer></script>
     <script src="src/csv.js" defer></script>
     <script src="src/matching.js" defer></script>
     <script src="src/classification.js" defer></script>
@@ -35,6 +36,13 @@
           <label class="field">
             <span>Map level</span>
             <select id="levelSelect"></select>
+          </label>
+          <label class="field">
+            <span>Boundary source</span>
+            <select id="boundarySourceSelect">
+              <option value="fixture">Built-in sample fixtures</option>
+              <option value="generated">Generated normalized GeoJSON</option>
+            </select>
           </label>
           <div class="segmented" role="group" aria-label="Layer visibility">
             <button id="fitMapButton" type="button">Fit</button>

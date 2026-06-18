@@ -5,6 +5,7 @@ const scriptOrder = [
   "src/data.js",
   "src/state.js",
   "src/utils.js",
+  "src/boundary-loader.js",
   "src/csv.js",
   "src/matching.js",
   "src/classification.js",
@@ -36,7 +37,15 @@ for (const file of scriptOrder) {
   vm.runInContext(await readFile(file, "utf8"), context, { filename: file });
 }
 
+const generatedBoundaryJson = await readFile("data/generated/admin_boundaries.normalized.geojson", "utf8");
+
 vm.runInContext(`
+  const generatedFeatures = geoJsonToAdminFeatures(${generatedBoundaryJson});
+  if (generatedFeatures.length !== 7) throw new Error("expected 7 generated boundary features");
+  if (!generatedFeatures.every((feature) => feature.polygons.length && feature.polygons.every((polygon) => polygon.length >= 3))) {
+    throw new Error("generated boundary conversion produced invalid polygons");
+  }
+
   parseImportedCsv(SAMPLE_BARANGAY_CSV, { scopeId: "CITY-137404", level: "barangay" });
   let join = buildJoin();
   if (join.matchedRows.length !== 12) throw new Error("expected 12 clean barangay matches");

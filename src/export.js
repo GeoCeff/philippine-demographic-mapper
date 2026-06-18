@@ -36,6 +36,7 @@ function saveProject() {
     state: {
       scopeId: state.scopeId,
       level: state.level,
+      boundarySource: state.boundarySource,
       palette: state.palette,
       classification: state.classification,
       bins: state.bins,

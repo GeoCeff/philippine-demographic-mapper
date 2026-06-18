@@ -2,11 +2,12 @@
 
 document.addEventListener("DOMContentLoaded", init);
 
-function init() {
+async function init() {
   cacheElements();
   populateStaticControls();
   bindEvents();
   parseImportedCsv(SAMPLE_REGION_CSV, { scopeId: "PH", level: "region", projectName: "Regional sample map" });
+  await loadGeneratedBoundaryFeatures();
   render();
 }
 
@@ -14,6 +15,7 @@ function cacheElements() {
   [
     "scopeSelect",
     "levelSelect",
+    "boundarySourceSelect",
     "fitMapButton",
     "clearSelectionButton",
     "densityNote",
@@ -75,6 +77,15 @@ function bindEvents() {
 
   el.levelSelect.addEventListener("change", () => {
     state.level = el.levelSelect.value;
+    state.selectedCode = null;
+    render();
+  });
+
+  el.boundarySourceSelect.addEventListener("change", () => {
+    state.boundarySource = el.boundarySourceSelect.value;
+    if (state.boundarySource === "generated" && state.generatedBoundaryStatus !== "ready") {
+      state.boundarySource = "fixture";
+    }
     state.selectedCode = null;
     render();
   });
@@ -230,6 +241,8 @@ function syncControls() {
     return `<option value="${level.id}"${disabled}>${escapeHtml(level.label)}</option>`;
   }).join("");
   el.levelSelect.value = state.level;
+  el.boundarySourceSelect.value = state.boundarySource;
+  el.boundarySourceSelect.querySelector('option[value="generated"]').disabled = state.generatedBoundaryStatus !== "ready";
 
   syncColumnSelect(el.keyColumnSelect, state.keyColumn);
   syncColumnSelect(el.valueColumnSelect, state.valueColumn);
@@ -262,13 +275,16 @@ function renderHeader() {
   const levelLabel = LEVELS.find((level) => level.id === state.level)?.label || state.level;
   el.activePath.textContent = `${scope.name} / ${levelLabel}`;
   el.mapTitle.textContent = state.projectName || "Untitled demographic map";
-  el.sourceStatus.textContent = "Sample boundary fixtures";
+  el.sourceStatus.textContent = getBoundarySourceLabel();
 
   const visibleCount = getVisibleFeatures().length;
   if (state.level === "barangay" && state.scopeId === "PH") {
     el.densityNote.textContent = "National barangay view is allowed here, but real production data should use vector tiles and focused scopes.";
+  } else if (state.generatedBoundaryStatus === "error") {
+    el.densityNote.textContent = `${visibleCount} ${levelLabel.toLowerCase()} feature${visibleCount === 1 ? "" : "s"} visible. ${state.generatedBoundaryMessage}`;
   } else {
-    el.densityNote.textContent = `${visibleCount} ${levelLabel.toLowerCase()} feature${visibleCount === 1 ? "" : "s"} visible.`;
+    const generatedNote = state.boundarySource === "generated" ? " Source: normalized GeoJSON." : "";
+    el.densityNote.textContent = `${visibleCount} ${levelLabel.toLowerCase()} feature${visibleCount === 1 ? "" : "s"} visible.${generatedNote}`;
   }
 }
 

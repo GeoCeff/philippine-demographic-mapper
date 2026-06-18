@@ -2,9 +2,10 @@
 
 function buildJoin() {
   const scope = getScope();
-  const levelFeatures = ADMIN_FEATURES.filter((feature) => feature.level === state.level);
+  const adminFeatures = getAdminFeatures();
+  const levelFeatures = adminFeatures.filter((feature) => feature.level === state.level);
   const byCode = new Map(levelFeatures.map((feature) => [feature.code, feature]));
-  const allByCode = new Map(ADMIN_FEATURES.map((feature) => [feature.code, feature]));
+  const allByCode = new Map(adminFeatures.map((feature) => [feature.code, feature]));
   const codeCounts = countImportedCodes();
   const valueByCode = new Map();
   const mappedRowsByCode = new Map();
@@ -170,7 +171,7 @@ function featurePath(feature) {
 }
 function getVisibleFeatures() {
   const scope = getScope();
-  return ADMIN_FEATURES.filter((feature) => feature.level === state.level && featureInScope(feature, scope));
+  return getAdminFeatures().filter((feature) => feature.level === state.level && featureInScope(feature, scope));
 }
 
 function featureInScope(feature, scope) {
@@ -188,7 +189,7 @@ function featureInScope(feature, scope) {
 }
 
 function featureByCode(code) {
-  return ADMIN_FEATURES.find((feature) => feature.code === code);
+  return getAdminFeatures().find((feature) => feature.code === code);
 }
 
 function getScope() {

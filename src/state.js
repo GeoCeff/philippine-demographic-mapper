@@ -3,6 +3,9 @@
 const state = {
   scopeId: "PH",
   level: "region",
+  boundarySource: "fixture",
+  generatedBoundaryStatus: "not-loaded",
+  generatedBoundaryMessage: "",
   palette: "bay",
   classification: "equal",
   bins: 5,
