@@ -12,6 +12,7 @@ All notable changes to this project will be documented here.
 - Added a smoke test for import matching behavior.
 - Added a boundary-source selector and normalized GeoJSON renderer bridge so the SVG map can use generated pipeline output as well as built-in fixtures.
 - Added export layout text controls for title, subtitle, and source note that render into the SVG and PNG output.
+- Added GitHub Pages deployment, sample CSV documentation, an issue-demo CSV, and sample validation tests.
 
 ## 0.1.0 - 2026-06-08
 

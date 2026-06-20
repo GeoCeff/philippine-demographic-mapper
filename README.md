@@ -42,6 +42,12 @@ Open:
 http://127.0.0.1:4173/
 ```
 
+GitHub Pages demo:
+
+```text
+https://geoceff.github.io/philippine-demographic-mapper/
+```
+
 You can also open `index.html` directly in a browser for the static prototype.
 
 ## Data Pipeline
@@ -134,6 +140,7 @@ npm run serve
 npm run data:build
 npm run data:validate
 npm run check
+npm test
 ```
 
 ## Roadmap

@@ -21,6 +21,7 @@
     "check": "node tools/check-syntax.mjs && node tools/smoke-test.mjs && npm run data:validate",
     "data:build": "node tools/data-pipeline.mjs --psgc tools/fixtures/psgc_sample.csv --boundaries tools/fixtures/boundaries_sample.geojson --out data/generated --report data/psgc_reconciliation_report.md --metadata data/source_metadata.json",
     "data:validate": "node tools/data-pipeline.mjs --validate data/generated/admin_boundaries.normalized.geojson --lookup data/generated/admin_lookup.json",
-    "serve": "node server.mjs"
+    "serve": "node server.mjs",
+    "test": "npm run check && node tools/validate-samples.mjs"
   }
 }
