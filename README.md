@@ -2,27 +2,27 @@
 
 A local-first web app for creating clean, infographic-style Philippine demographic maps.
 
-The current prototype supports a complete first workflow: choose a geography scope, load PSGC-coded CSV data, style a choropleth, review matches, export a PNG, and save or reload a project JSON. It also includes the first data-foundation pipeline for normalizing PSGC and boundary source files into app-ready lookup and GeoJSON outputs.
+The current prototype supports a complete first workflow: choose a geography scope, load PSGC-coded CSV data, style a choropleth, review matches, export PNG/SVG, and save or reload a project JSON. It also includes a no-dependency boundary fetch/normalization path for open PSGC-coded Philippine boundary data.
 
 ## Status
 
 Prototype / data foundation.
 
-Important caveat: the visible map in the app currently uses simplified sample polygons. These are not official boundaries and should not be used for legal, planning, or statistical publication work. Production boundary support should come from running the data pipeline against current PSA PSGC records and reviewed boundary geometry.
+Important caveat: the built-in map fixtures are simplified samples and should not be used for legal, planning, or statistical publication work. For real geometry, run the boundary fetch scripts and keep the source metadata visible in exported work.
 
 ## Features
 
 - Local static web app with no dependency install required.
-- Region, province, city/municipality, and sample barangay map levels.
+- Region, province, city/municipality, and scoped barangay map levels.
 - Boundary source selector for built-in SVG fixtures or generated normalized GeoJSON.
 - Scope picker for national, regional, provincial, and city-focused views.
 - CSV import using PSGC code joins.
 - Match summary and match review panel with duplicate-code warnings, wrong-level checks, parent-scope validation, value checks, and issue CSV export.
 - Choropleth palettes, classification modes, border styling, missing-data styling, and highlight color.
-- PNG export with square, portrait, and report-size presets plus optional title, subtitle, and source note.
+- PNG and SVG export with square, portrait, and report-size presets plus optional title, subtitle, and source note.
 - Project JSON save and load.
 - PSGC/boundary reconciliation pipeline scaffold.
-- Generated normalized boundary GeoJSON, lookup JSON, and reconciliation report.
+- Open boundary fetcher with SHA-256 verification and scoped barangay outputs.
 
 ## Quick Start
 
@@ -58,11 +58,25 @@ Build sample normalized boundary outputs:
 npm run data:build
 ```
 
-Validate generated outputs:
+Validate the small generated test fixture:
 
 ```powershell
 npm run data:validate
 ```
+
+Fetch real open PSGC-coded boundaries:
+
+```powershell
+npm run boundaries:build
+```
+
+Fetch scoped barangay files too:
+
+```powershell
+npm run boundaries:barangays
+```
+
+Generated files are written under `data/generated` and are not committed. The app falls back to built-in sample fixtures when generated files are absent.
 
 Production-oriented input files can be placed in `data/raw`. The no-dependency pipeline expects:
 
@@ -90,6 +104,7 @@ Generated outputs:
 
 - `data/generated/admin_boundaries.normalized.geojson`
 - `data/generated/admin_lookup.json`
+- `data/generated/barangays/<scope>/<code>.geojson`
 - `data/psgc_reconciliation_report.md`
 
 ## Data Sources
@@ -98,45 +113,50 @@ Primary production sources identified in the project plan:
 
 - PSA PSGC: official geographic codes and administrative hierarchy.
 - PSA PSGC API: official versioned endpoint for regions, provinces, cities/municipalities, and barangays.
+- `bendlikeabamboo/barangay-boundaries-repository`: MIT-licensed PSGC-coded GeoJSON derived from PSA PSGC snapshots and NAMRIA shapefiles.
 - HDX/OCHA Philippines Subnational Administrative Boundaries: practical public admin 0-4 geometry sourced from NAMRIA/PSA, with important caveats.
 
-The HDX/OCHA boundary metadata describes the geometry as indicative rather than official legal boundaries. The reconciliation report should be reviewed before claiming reliable barangay matching.
+Boundary metadata should be reviewed before claiming reliable barangay matching.
 
 ## Project Structure
 
 ```text
 .
-├── index.html
-├── styles.css
-├── src/
-│   ├── app.js
-│   ├── boundary-loader.js
-│   ├── classification.js
-│   ├── csv.js
-│   ├── data.js
-│   ├── export.js
-│   ├── matching.js
-│   ├── render-utils.js
-│   ├── state.js
-│   └── utils.js
-├── tools/
-│   ├── data-pipeline.mjs
-│   ├── fixtures/
-│   └── README.md
-├── data/
-│   ├── raw/
-│   ├── generated/
-│   ├── psgc_reconciliation_report.md
-│   └── source_metadata.json
-├── sample-data/
-├── MAP_MAKER_PLAN.md
-└── server.mjs
+|-- index.html
+|-- styles.css
+|-- src/
+|   |-- app.js
+|   |-- boundary-loader.js
+|   |-- classification.js
+|   |-- csv.js
+|   |-- data.js
+|   |-- export.js
+|   |-- matching.js
+|   |-- render-utils.js
+|   |-- state.js
+|   `-- utils.js
+|-- tools/
+|   |-- data-pipeline.mjs
+|   |-- fetch-boundaries.mjs
+|   |-- fixtures/
+|   `-- README.md
+|-- data/
+|   |-- raw/
+|   |-- generated/
+|   |-- psgc_reconciliation_report.md
+|   `-- source_metadata.json
+|-- sample-data/
+|-- MAP_MAKER_PLAN.md
+`-- server.mjs
 ```
 
 ## Scripts
 
 ```powershell
 npm run serve
+npm run boundaries:build
+npm run boundaries:barangays
+npm run boundaries:check
 npm run data:build
 npm run data:validate
 npm run check
@@ -145,7 +165,7 @@ npm test
 
 ## Roadmap
 
-- Expand generated boundary rendering beyond the current normalized GeoJSON bridge toward PMTiles/vector tiles.
+- Expand generated boundary rendering toward PMTiles/vector tiles.
 - Add production PSGC download/import workflow.
 - Convert shapefile or GeoPackage sources into GeoJSON/PMTiles.
 - Move interactive rendering to MapLibre + vector tiles for full barangay performance.

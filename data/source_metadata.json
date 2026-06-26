@@ -47,5 +47,67 @@
     "matched_records": 7,
     "psgc_only_records": 1,
     "boundary_only_records": 1
+  },
+  "latest_boundary_release": {
+    "generated_at": "2026-06-26T03:09:47.800Z",
+    "repository": "bendlikeabamboo/barangay-boundaries-repository",
+    "release_tag": "v2026.4.13.0",
+    "release_url": "https://github.com/bendlikeabamboo/barangay-boundaries-repository/releases/tag/v2026.4.13.0",
+    "snapshot": "2023-10-24",
+    "namria_version": "2023-11-06",
+    "attribution": {
+      "psgc": "Philippine Statistics Authority (PSA)",
+      "boundaries": "NAMRIA"
+    },
+    "files": [
+      {
+        "path": "barangays.geojson",
+        "bytes": 66937084,
+        "features": 42026,
+        "sha256": "10606e46cd7b4b34a61f4975f3568bb3c11a48fa355cbe3c4d78c3737e0fcfa9"
+      },
+      {
+        "path": "component_cities.geojson",
+        "bytes": 487789,
+        "features": 110,
+        "sha256": "5e286085b039906f1def9f8fd0a3d8f1231eb9843481034516900ae623378d81"
+      },
+      {
+        "path": "highly_urbanized_cities.geojson",
+        "bytes": 175318,
+        "features": 34,
+        "sha256": "23d2219c0ffaae891a09ba86034f51114c1a952ab7e3edc10d2adbb64d326ad1"
+      },
+      {
+        "path": "independent_component_cities.geojson",
+        "bytes": 24588,
+        "features": 6,
+        "sha256": "2671f15c1c650972dc157eda58ef3f657b44d2160b68544851c0edfde66b19a1"
+      },
+      {
+        "path": "municipalities.geojson",
+        "bytes": 5973581,
+        "features": 1485,
+        "sha256": "3c6d8f48f33dab01d6bd0b83a31229577817286a01ac23e5d290ddbd4c6f51ef"
+      },
+      {
+        "path": "provinces.geojson",
+        "bytes": 3205680,
+        "features": 82,
+        "sha256": "60d80617841f0ecad4cb1c304ab82740af68f206737a2fe2cab0ffdc0aedcfbe"
+      },
+      {
+        "path": "regions.geojson",
+        "bytes": 2955658,
+        "features": 17,
+        "sha256": "d4dc71356f1b29f90e4f2737becd9f5216c26d2567f815fd0b9f85f71243d86b"
+      }
+    ],
+    "normalized_boundaries": "data/generated/admin_boundaries.normalized.geojson",
+    "scoped_barangays": "data/generated/barangays",
+    "lookup": "data/generated/admin_lookup.json",
+    "admin_features": 1733,
+    "barangay_features": 42026,
+    "caveat": "Open PSGC-coded geometry from PSA PSGC snapshots and NAMRIA shapefiles; verify unresolved coverage before authoritative use."
   }
 }

@@ -31,3 +31,19 @@ The pipeline normalizes common PSA and HDX/OCHA-style field names into:
 - `source_version`
 
 Shapefiles should be converted to GeoJSON or another intermediate format before this no-dependency pipeline step.
+
+## Open PSGC-Coded Boundaries
+
+The app can also fetch the MIT-licensed `bendlikeabamboo/barangay-boundaries-repository` release data:
+
+```powershell
+npm run boundaries:build
+```
+
+That builds real region, province, municipality, and city boundaries. Barangays are large, so fetch them only when needed:
+
+```powershell
+npm run boundaries:barangays
+```
+
+Downloaded source GeoJSON files stay under `data/raw/boundaries`, which is intentionally ignored by git.

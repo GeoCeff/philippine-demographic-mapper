@@ -44,6 +44,11 @@
               <option value="generated">Generated normalized GeoJSON</option>
             </select>
           </label>
+          <label class="field">
+            <span>Find PSGC / name</span>
+            <input id="geographySearchInput" type="search" list="geographyOptions" placeholder="Quezon City or 1374040000">
+            <datalist id="geographyOptions"></datalist>
+          </label>
           <div class="segmented" role="group" aria-label="Layer visibility">
             <button id="fitMapButton" type="button">Fit</button>
             <button id="clearSelectionButton" type="button">Clear</button>
@@ -87,7 +92,12 @@
               <option value="quantile">Quantile</option>
               <option value="continuous">Continuous</option>
               <option value="highlight">Highlight only</option>
+              <option value="custom">Custom thresholds</option>
             </select>
+          </label>
+          <label class="field">
+            <span>Thresholds</span>
+            <input id="customThresholdsInput" type="text" value="" placeholder="10, 25, 50">
           </label>
           <label class="field inline-field">
             <span>Bins</span>
@@ -109,6 +119,7 @@
             <input id="backgroundColorInput" type="color" value="#f6f7f5">
             <label class="toggle"><input id="transparentInput" type="checkbox"> Transparent</label>
           </label>
+          <p id="contrastNote" class="note"></p>
         </section>
 
         <section class="panel">
@@ -143,6 +154,7 @@
           </div>
           <div class="action-row">
             <button id="exportPngButton" class="primary-button" type="button">Export PNG</button>
+            <button id="exportSvgButton" type="button">Export SVG</button>
             <button id="saveProjectButton" type="button">Save JSON</button>
             <button id="loadProjectButton" type="button">Load JSON</button>
           </div>

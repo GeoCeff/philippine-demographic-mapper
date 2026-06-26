@@ -14,9 +14,16 @@ It does four jobs:
 ```powershell
 npm run data:build
 npm run data:validate
+npm run boundaries:build
+npm run boundaries:barangays
+npm run boundaries:check
 ```
 
 `npm run data:build` uses sample fixtures so the workflow is testable without a PSA token or a large HDX download.
+
+`npm run boundaries:build` downloads the latest PSGC-coded open GeoJSON release from `bendlikeabamboo/barangay-boundaries-repository`, verifies SHA-256 checksums from its manifest, and writes normalized app data. `npm run boundaries:barangays` does the same plus barangays.
+
+`npm run boundaries:check` rebuilds admin-level boundaries and verifies the generated feature count plus release metadata.
 
 ## Production Source Notes
 

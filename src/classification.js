@@ -16,7 +16,8 @@ function getFeatureFill(feature, value, scale) {
 function buildScale(features, valueByCode) {
   const values = features.map((feature) => valueByCode.get(feature.code)).filter(Number.isFinite).sort((a, b) => a - b);
   const palette = PALETTES[state.palette] || PALETTES.bay;
-  const colorCount = state.classification === "continuous" ? palette.colors.length : state.bins;
+  const customThresholds = parseThresholds(state.customThresholds);
+  const colorCount = state.classification === "continuous" ? palette.colors.length : state.classification === "custom" && customThresholds.length ? customThresholds.length + 1 : state.bins;
   const colors = sampleColors(palette.colors, colorCount);
 
   if (!values.length) {
@@ -40,6 +41,7 @@ function buildScale(features, valueByCode) {
     const thresholds = colors.slice(1).map((_, index) => quantile(values, (index + 1) / colors.length));
     return {
       colors,
+      labels: legendLabels(min, max, thresholds),
       colorForValue(value) {
         const bin = thresholds.findIndex((threshold) => value <= threshold);
         return colors[bin === -1 ? colors.length - 1 : bin];
@@ -47,8 +49,21 @@ function buildScale(features, valueByCode) {
     };
   }
 
+  if (state.classification === "custom" && customThresholds.length) {
+    return {
+      colors,
+      labels: legendLabels(min, max, customThresholds),
+      colorForValue(value) {
+        const bin = customThresholds.findIndex((threshold) => value <= threshold);
+        return colors[bin === -1 ? colors.length - 1 : bin];
+      }
+    };
+  }
+
+  const thresholds = colors.slice(1).map((_, index) => min + ((max - min) * (index + 1)) / colors.length);
   return {
     colors,
+    labels: legendLabels(min, max, thresholds),
     colorForValue(value) {
       if (max === min) return colors[colors.length - 1];
       const index = Math.min(colors.length - 1, Math.floor(((value - min) / (max - min)) * colors.length));
@@ -94,4 +109,16 @@ function quantile(sortedValues, p) {
   const upper = Math.ceil(index);
   if (lower === upper) return sortedValues[lower];
   return sortedValues[lower] + (sortedValues[upper] - sortedValues[lower]) * (index - lower);
+}
+
+function parseThresholds(value) {
+  return String(value || "")
+    .split(",")
+    .map((item) => Number(item.trim()))
+    .filter(Number.isFinite)
+    .sort((a, b) => a - b);
+}
+
+function legendLabels(min, max, thresholds) {
+  return [min, ...thresholds, max].map(formatNumber);
 }

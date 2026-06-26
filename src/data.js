@@ -20,6 +20,10 @@ const PALETTES = {
     label: "Hibiscus",
     colors: ["#f9edf1", "#efc7d1", "#dc8ea3", "#c65373", "#9f3158", "#742245", "#4e1935"]
   },
+  okabeIto: {
+    label: "Colorblind safe",
+    colors: ["#f0e442", "#56b4e9", "#009e73", "#0072b2", "#d55e00", "#cc79a7", "#000000"]
+  },
   monoInk: {
     label: "Print ink",
     colors: ["#f4f4f0", "#d8ddd2", "#aeb9aa", "#818e7c", "#596656", "#354233", "#182118"]

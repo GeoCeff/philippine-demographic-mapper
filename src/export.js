@@ -1,16 +1,7 @@
 "use strict";
 
 function exportPng() {
-  const exportSvg = el.mapSvg.cloneNode(true);
-  exportSvg.setAttribute("width", state.exportWidth);
-  exportSvg.setAttribute("height", state.exportHeight);
-  exportSvg.setAttribute("xmlns", "http://www.w3.org/2000/svg");
-  exportSvg.querySelectorAll(".map-feature").forEach((node) => {
-    node.removeAttribute("tabindex");
-    node.removeAttribute("role");
-  });
-
-  const serialized = new XMLSerializer().serializeToString(exportSvg);
+  const serialized = serializeMapSvg();
   const blob = new Blob([serialized], { type: "image/svg+xml;charset=utf-8" });
   const url = URL.createObjectURL(blob);
   const image = new Image();
@@ -23,10 +14,37 @@ function exportPng() {
     context.drawImage(image, 0, 0, canvas.width, canvas.height);
     URL.revokeObjectURL(url);
     canvas.toBlob((pngBlob) => {
+      if (!pngBlob) {
+        alert("PNG export failed.");
+        return;
+      }
       downloadBlob(pngBlob, `${slugify(state.projectName || "demographic-map")}.png`);
     }, "image/png");
   };
+  image.onerror = () => {
+    URL.revokeObjectURL(url);
+    alert("PNG export failed.");
+  };
   image.src = url;
+}
+
+function exportSvg() {
+  downloadBlob(
+    new Blob([serializeMapSvg()], { type: "image/svg+xml;charset=utf-8" }),
+    `${slugify(state.projectName || "demographic-map")}.svg`
+  );
+}
+
+function serializeMapSvg() {
+  const exportSvg = el.mapSvg.cloneNode(true);
+  exportSvg.setAttribute("width", state.exportWidth);
+  exportSvg.setAttribute("height", state.exportHeight);
+  exportSvg.setAttribute("xmlns", "http://www.w3.org/2000/svg");
+  exportSvg.querySelectorAll(".map-feature").forEach((node) => {
+    node.removeAttribute("tabindex");
+    node.removeAttribute("role");
+  });
+  return new XMLSerializer().serializeToString(exportSvg);
 }
 
 function saveProject() {
@@ -39,6 +57,7 @@ function saveProject() {
       boundarySource: state.boundarySource,
       palette: state.palette,
       classification: state.classification,
+      customThresholds: state.customThresholds,
       bins: state.bins,
       borderColor: state.borderColor,
       borderWidth: state.borderWidth,
@@ -106,11 +125,42 @@ function exportImportIssues() {
 async function loadProject(event) {
   const file = event.target.files[0];
   if (!file) return;
-  const payload = JSON.parse(await file.text());
-  Object.assign(state, payload.state || {});
+  let payload;
+  try {
+    payload = JSON.parse(await file.text());
+  } catch {
+    alert("Project file is not valid JSON.");
+    return;
+  }
+  const loadedState = validateProjectState(payload.state);
+  if (!loadedState) {
+    alert("Project file is missing required map settings.");
+    return;
+  }
+  Object.assign(state, loadedState);
   state.selectedCode = null;
   render();
   el.projectInput.value = "";
+}
+
+function validateProjectState(value) {
+  if (!value || typeof value !== "object") return null;
+  const loaded = {};
+  const strings = ["scopeId", "level", "boundarySource", "palette", "classification", "customThresholds", "borderColor", "missingColor", "highlightColor", "backgroundColor", "layoutTitle", "layoutSubtitle", "sourceNote", "projectName", "keyColumn", "valueColumn"];
+  const numbers = ["bins", "borderWidth", "exportWidth", "exportHeight"];
+  strings.forEach((key) => {
+    if (typeof value[key] === "string") loaded[key] = value[key];
+  });
+  numbers.forEach((key) => {
+    if (Number.isFinite(Number(value[key]))) loaded[key] = Number(value[key]);
+  });
+  ["transparent", "showLayoutText"].forEach((key) => {
+    if (typeof value[key] === "boolean") loaded[key] = value[key];
+  });
+  if (Array.isArray(value.importedRows)) loaded.importedRows = value.importedRows;
+  if (Array.isArray(value.columns)) loaded.columns = value.columns;
+  if (!loaded.scopeId || !loaded.level) return null;
+  return loaded;
 }
 
 function downloadBlob(blob, filename) {

@@ -1,0 +1,14 @@
+{
+  "latest_pipeline_run": {
+    "generated_at": "2026-06-25T14:39:29.596Z",
+    "psgc_input": "tools/fixtures/psgc_sample.csv",
+    "boundary_input": "tools/fixtures/boundaries_sample.geojson",
+    "normalized_boundaries": "tools/fixtures/generated/admin_boundaries.normalized.geojson",
+    "lookup": "tools/fixtures/generated/admin_lookup.json",
+    "psgc_records": 8,
+    "boundary_records": 8,
+    "matched_records": 7,
+    "psgc_only_records": 1,
+    "boundary_only_records": 1
+  }
+}

@@ -4,12 +4,21 @@ function boundsFromFeatures(features) {
   if (!features.length) {
     return { minX: 0, minY: 0, maxX: 900, maxY: 1100, width: 900, height: 1100 };
   }
-  const points = features.flatMap((feature) => feature.polygons.flat());
-  const minX = Math.min(...points.map((point) => point.x));
-  const maxX = Math.max(...points.map((point) => point.x));
-  const minY = Math.min(...points.map((point) => point.y));
-  const maxY = Math.max(...points.map((point) => point.y));
+  const bounds = { minX: Infinity, maxX: -Infinity, minY: Infinity, maxY: -Infinity };
+  features.forEach((feature) => {
+    feature.polygons.flat().forEach((point) => {
+      bounds.minX = Math.min(bounds.minX, point.x);
+      bounds.maxX = Math.max(bounds.maxX, point.x);
+      bounds.minY = Math.min(bounds.minY, point.y);
+      bounds.maxY = Math.max(bounds.maxY, point.y);
+    });
+  });
+  const { minX, maxX, minY, maxY } = bounds;
   return { minX, minY, maxX, maxY, width: maxX - minX, height: maxY - minY };
+}
+
+function pathFromFeature(feature) {
+  return feature.polygons.map(pathFromPolygon).join(" ");
 }
 
 function pathFromPolygon(polygon) {

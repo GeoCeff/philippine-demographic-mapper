@@ -16,6 +16,8 @@ function cacheElements() {
     "scopeSelect",
     "levelSelect",
     "boundarySourceSelect",
+    "geographySearchInput",
+    "geographyOptions",
     "fitMapButton",
     "clearSelectionButton",
     "densityNote",
@@ -28,7 +30,9 @@ function cacheElements() {
     "matchSummary",
     "exportIssuesButton",
     "paletteSelect",
+    "contrastNote",
     "classificationSelect",
+    "customThresholdsInput",
     "binsInput",
     "binsOutput",
     "borderColorInput",
@@ -44,6 +48,7 @@ function cacheElements() {
     "exportWidthInput",
     "exportHeightInput",
     "exportPngButton",
+    "exportSvgButton",
     "saveProjectButton",
     "loadProjectButton",
     "projectInput",
@@ -91,6 +96,17 @@ function bindEvents() {
       state.boundarySource = "fixture";
     }
     state.selectedCode = null;
+    render();
+  });
+
+  el.geographySearchInput.addEventListener("change", () => {
+    const query = el.geographySearchInput.value.trim().toLowerCase();
+    const feature = getAdminFeatures().find((item) => item.code.toLowerCase() === query || item.name.toLowerCase() === query);
+    if (!feature) return;
+    state.level = feature.level;
+    state.scopeId = scopeIdForFeature(feature);
+    state.selectedCode = feature.code;
+    el.geographySearchInput.value = "";
     render();
   });
 
@@ -149,6 +165,11 @@ function bindEvents() {
 
   el.classificationSelect.addEventListener("change", () => {
     state.classification = el.classificationSelect.value;
+    render();
+  });
+
+  el.customThresholdsInput.addEventListener("input", () => {
+    state.customThresholds = el.customThresholdsInput.value;
     render();
   });
 
@@ -226,6 +247,7 @@ function bindEvents() {
   });
 
   el.exportPngButton.addEventListener("click", exportPng);
+  el.exportSvgButton.addEventListener("click", exportSvg);
   el.exportIssuesButton.addEventListener("click", exportImportIssues);
   el.saveProjectButton.addEventListener("click", saveProject);
   el.loadProjectButton.addEventListener("click", () => el.projectInput.click());
@@ -250,6 +272,7 @@ function render() {
   if (!scope.allowedLevels.includes(state.level)) {
     state.level = scope.preferredLevel;
   }
+  maybeLoadGeneratedBarangaysForScope();
   syncControls();
   renderMap();
   renderSelection();
@@ -269,12 +292,17 @@ function syncControls() {
   el.levelSelect.value = state.level;
   el.boundarySourceSelect.value = state.boundarySource;
   el.boundarySourceSelect.querySelector('option[value="generated"]').disabled = state.generatedBoundaryStatus !== "ready";
+  el.geographyOptions.innerHTML = getAdminFeatures()
+    .slice(0, 3000)
+    .map((feature) => `<option value="${escapeAttr(feature.code)}">${escapeHtml(feature.name)}</option>`)
+    .join("");
 
   syncColumnSelect(el.keyColumnSelect, state.keyColumn);
   syncColumnSelect(el.valueColumnSelect, state.valueColumn);
 
   el.paletteSelect.value = state.palette;
   el.classificationSelect.value = state.classification;
+  el.customThresholdsInput.value = state.customThresholds;
   el.binsInput.value = state.bins;
   el.binsOutput.value = String(state.bins);
   el.borderColorInput.value = state.borderColor;
@@ -290,6 +318,14 @@ function syncControls() {
   el.exportWidthInput.value = state.exportWidth;
   el.exportHeightInput.value = state.exportHeight;
   el.exportIssuesButton.disabled = buildJoin().issueRows.length === 0;
+  el.contrastNote.textContent = contrastWarning();
+}
+
+function scopeIdForFeature(feature) {
+  if (feature.level === "barangay") return SCOPES.find((scope) => scope.type === "city" && scope.code === feature.cityCode)?.id || state.scopeId;
+  if (feature.level === "city") return SCOPES.find((scope) => scope.type === "province" && scope.code === feature.provinceCode)?.id || SCOPES.find((scope) => scope.type === "region" && scope.code === feature.regionCode)?.id || "PH";
+  if (feature.level === "province") return SCOPES.find((scope) => scope.type === "region" && scope.code === feature.regionCode)?.id || "PH";
+  return "PH";
 }
 
 function syncColumnSelect(select, selected) {
@@ -300,6 +336,17 @@ function syncColumnSelect(select, selected) {
   }
 }
 
+function contrastWarning() {
+  if (state.transparent) return "";
+  if (contrastRatio(state.missingColor, state.backgroundColor) < 1.2) {
+    return "Missing-data color is very close to the background.";
+  }
+  if (contrastRatio(state.borderColor, state.backgroundColor) < 1.2) {
+    return "Boundary strokes may be hard to see against the background.";
+  }
+  return "";
+}
+
 function renderHeader() {
   const scope = getScope();
   const levelLabel = LEVELS.find((level) => level.id === state.level)?.label || state.level;
@@ -308,14 +355,28 @@ function renderHeader() {
   el.sourceStatus.textContent = getBoundarySourceLabel();
 
   const visibleCount = getVisibleFeatures().length;
+  const metadata = state.boundarySource === "generated" ? boundaryMetadataText() : "";
   if (state.level === "barangay" && state.scopeId === "PH") {
-    el.densityNote.textContent = "National barangay view is allowed here, but real production data should use vector tiles and focused scopes.";
+    el.densityNote.textContent = "Choose a province or city scope to load generated barangays.";
+  } else if (state.generatedBarangayMessage && state.boundarySource === "generated" && state.level === "barangay") {
+    el.densityNote.textContent = `${visibleCount} ${levelLabel.toLowerCase()} feature${visibleCount === 1 ? "" : "s"} visible. ${state.generatedBarangayMessage}${metadata}`;
   } else if (state.generatedBoundaryStatus === "error") {
     el.densityNote.textContent = `${visibleCount} ${levelLabel.toLowerCase()} feature${visibleCount === 1 ? "" : "s"} visible. ${state.generatedBoundaryMessage}`;
   } else {
-    const generatedNote = state.boundarySource === "generated" ? " Source: normalized GeoJSON." : "";
+    const generatedNote = state.boundarySource === "generated" ? ` Source: normalized GeoJSON.${metadata}` : "";
     el.densityNote.textContent = `${visibleCount} ${levelLabel.toLowerCase()} feature${visibleCount === 1 ? "" : "s"} visible.${generatedNote}`;
   }
+}
+
+function boundaryMetadataText() {
+  const metadata = state.boundaryMetadata || {};
+  const parts = [
+    metadata.releaseTag ? ` Release ${metadata.releaseTag}.` : "",
+    metadata.snapshot ? ` PSGC snapshot ${metadata.snapshot}.` : "",
+    metadata.namriaVersion ? ` NAMRIA ${metadata.namriaVersion}.` : "",
+    metadata.caveat ? ` ${metadata.caveat}` : ""
+  ];
+  return parts.join("");
 }
 
 function renderMap() {
@@ -365,8 +426,9 @@ function renderMap() {
   }
 
   const shadow = createSvgElement("path", {
-    d: visibleFeatures.flatMap((feature) => feature.polygons.map(pathFromPolygon)).join(" "),
+    d: visibleFeatures.map(pathFromFeature).join(" "),
     fill: "rgba(32, 35, 31, 0.08)",
+    "fill-rule": "evenodd",
     transform: "translate(7 9)"
   });
   el.mapSvg.appendChild(shadow);
@@ -382,18 +444,16 @@ function renderMap() {
       "aria-label": `${feature.name}, ${feature.code}`
     });
 
-    feature.polygons.forEach((polygon) => {
-      const fill = getFeatureFill(feature, featureValue, scale);
-      const path = createSvgElement("path", {
-        d: pathFromPolygon(polygon),
-        fill,
-        stroke: selected ? state.highlightColor : state.borderColor,
-        "stroke-width": selected ? state.borderWidth + 1.4 : state.borderWidth,
-        "stroke-linejoin": "round",
-        "vector-effect": "non-scaling-stroke"
-      });
-      group.appendChild(path);
+    const path = createSvgElement("path", {
+      d: pathFromFeature(feature),
+      fill: getFeatureFill(feature, featureValue, scale),
+      "fill-rule": "evenodd",
+      stroke: selected ? state.highlightColor : state.borderColor,
+      "stroke-width": selected ? state.borderWidth + 1.4 : state.borderWidth,
+      "stroke-linejoin": "round",
+      "vector-effect": "non-scaling-stroke"
     });
+    group.appendChild(path);
 
     group.addEventListener("click", () => {
       state.selectedCode = state.selectedCode === feature.code ? null : feature.code;
@@ -506,8 +566,7 @@ function renderLegend() {
       ${colors.map((color) => `<span style="background:${color}"></span>`).join("")}
     </div>
     <div class="legend-labels">
-      <span>${formatNumber(Math.min(...values))}</span>
-      <span>${formatNumber(Math.max(...values))}</span>
+      ${(scale.labels || [formatNumber(Math.min(...values)), formatNumber(Math.max(...values))]).map((label) => `<span>${escapeHtml(label)}</span>`).join("")}
     </div>
   `;
 }
