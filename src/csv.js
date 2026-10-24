@@ -54,12 +54,13 @@ function chooseNumericColumn(rows, columns) {
 }
 
 function normalizeCode(value) {
-  return String(value || "").trim().replace(/[^0-9A-Za-z-]/g, "");
+  return String(value || "").trim().replace(/[^0-9A-Za-z_-]/g, "");
 }
 
 function parseValue(value) {
-  if (value === null || value === undefined || value === "") return NaN;
-  const number = Number(String(value).replace(/,/g, "").replace(/%$/, ""));
+  const text = String(value ?? "").trim().replace(/,/g, "").replace(/%$/, "");
+  if (!text.trim()) return NaN;
+  const number = Number(text);
   return Number.isFinite(number) ? number : NaN;
 }
 

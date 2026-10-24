@@ -21,10 +21,11 @@
     "check": "node tools/check-syntax.mjs && node tools/smoke-test.mjs && npm run data:validate",
     "boundaries:build": "node tools/fetch-boundaries.mjs",
     "boundaries:barangays": "node tools/fetch-boundaries.mjs --include-barangays",
+    "boundaries:detail": "node tools/fetch-boundary-detail.mjs",
     "boundaries:check": "npm run boundaries:build && node tools/check-boundaries.mjs",
-    "data:build": "node tools/data-pipeline.mjs --psgc tools/fixtures/psgc_sample.csv --boundaries tools/fixtures/boundaries_sample.geojson --out data/generated --report data/psgc_reconciliation_report.md --metadata data/source_metadata.json",
+    "data:build": "node tools/data-pipeline.mjs --psgc tools/fixtures/psgc_sample.csv --boundaries tools/fixtures/boundaries_sample.geojson --out tools/fixtures/generated --report tools/fixtures/psgc_reconciliation_report.md --metadata tools/fixtures/source_metadata.json",
     "data:validate": "node tools/data-pipeline.mjs --validate tools/fixtures/generated/admin_boundaries.normalized.geojson --lookup tools/fixtures/generated/admin_lookup.json",
     "serve": "node server.mjs",
-    "test": "npm run check && node tools/validate-samples.mjs"
+    "test": "npm run check && node tools/validate-samples.mjs && node tools/test-map-labels.mjs && node tools/test-real-map.mjs && node tools/test-workspace-ui.mjs && node tools/test-map-navigation.mjs && node tools/test-map-performance.mjs && node tools/test-boundary-detail.mjs && node --test tools/boundary-pipeline.test.mjs tools/read-shapefile.test.mjs tools/fetch-boundary-detail.test.mjs"
   }
 }

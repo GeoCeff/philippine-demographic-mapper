@@ -22,9 +22,26 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+      - name: Validate the app
+        run: npm test
+      - name: Build the pinned Philippine boundary package
+        run: |
+          node tools/fetch-boundaries.mjs --include-barangays --release v2026.4.13.0
+          node tools/fetch-boundary-detail.mjs
+          node tools/check-boundaries.mjs
+      - name: Stage the static app and generated map data
+        run: |
+          mkdir -p _site/data
+          cp index.html styles.css LICENSE README.md _site/
+          cp -R src assets _site/
+          cp data/source_metadata.json _site/data/
+          cp -R data/generated _site/data/
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
-          path: .
+          path: _site
       - id: deployment
         uses: actions/deploy-pages@v4

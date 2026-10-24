@@ -1,7 +1,7 @@
 {
   "created_for": "Demographic Map Maker MVP prototype",
   "created_on": "2026-05-27",
-  "boundary_mode": "sample fixtures with data-pipeline scaffold",
+  "boundary_mode": "historical source geometry with explicit coverage report",
   "production_sources": [
     {
       "name": "PSA PSGC",
@@ -35,7 +35,7 @@
     "data/generated/admin_lookup.json",
     "data/psgc_reconciliation_report.md"
   ],
-  "caveat": "The current app still ships simplified sample polygons for display. The new data pipeline can normalize and reconcile local PSGC and boundary source files, but production map claims require running it against current official PSGC data and reviewed boundary geometry.",
+  "caveat": "Missing source polygons are not synthesized. Fuzzy matches and repeated PSGC assignments are preserved and need review. This release uses the 2023-10-24 PSGC snapshot, not the current administrative hierarchy. HUC/ICC geographic province fields do not imply administrative subordination.",
   "latest_pipeline_run": {
     "generated_at": "2026-06-08T02:24:49.608Z",
     "psgc_input": "tools/fixtures/psgc_sample.csv",
@@ -49,65 +49,265 @@
     "boundary_only_records": 1
   },
   "latest_boundary_release": {
-    "generated_at": "2026-06-26T03:09:47.800Z",
+    "generated_at": "2026-10-20T12:44:39.618Z",
     "repository": "bendlikeabamboo/barangay-boundaries-repository",
     "release_tag": "v2026.4.13.0",
     "release_url": "https://github.com/bendlikeabamboo/barangay-boundaries-repository/releases/tag/v2026.4.13.0",
     "snapshot": "2023-10-24",
     "namria_version": "2023-11-06",
+    "tolerance_degrees": "t0p005",
     "attribution": {
       "psgc": "Philippine Statistics Authority (PSA)",
       "boundaries": "NAMRIA"
     },
+    "license": {
+      "code": "MIT",
+      "code_license": "data/raw/boundaries/source_LICENSE.txt",
+      "data": "PSGC © PSA; administrative boundaries © NAMRIA. Source asks downstream products to credit both agencies; the code MIT license is not a separate blanket data license.",
+      "source": "https://github.com/bendlikeabamboo/barangay-boundaries-repository/tree/v2026.4.13.0#license"
+    },
+    "manifest": {
+      "path": "data/raw/boundaries/manifest.json",
+      "url": "https://github.com/bendlikeabamboo/barangay-boundaries-repository/releases/download/v2026.4.13.0/manifest.json",
+      "bytes": 4687,
+      "sha256": "6f884002658ffbcde9bc23300cf4684fde1c4a9826775295b8aa9d5d20089c89"
+    },
+    "evidence": [
+      {
+        "path": "data/raw/boundaries/classification_report.json",
+        "url": "https://github.com/bendlikeabamboo/barangay-boundaries-repository/releases/download/v2026.4.13.0/classification_report.json",
+        "bytes": 31115,
+        "sha256": "b2f4b66d59fc4c6ec208dd85bcad67fe7c08d03ca0427ab0665dc5628c49f0ef",
+        "verification": "download digest; not listed in upstream checksum manifest"
+      },
+      {
+        "path": "data/raw/boundaries/summary.md",
+        "url": "https://github.com/bendlikeabamboo/barangay-boundaries-repository/releases/download/v2026.4.13.0/summary.md",
+        "bytes": 10240,
+        "sha256": "1717bf6f72f7844c7821ba00864b48e9c4f9cb464f6dcce83943281c845f1770",
+        "verification": "download digest; not listed in upstream checksum manifest"
+      },
+      {
+        "path": "data/raw/boundaries/source_LICENSE.txt",
+        "url": "https://raw.githubusercontent.com/bendlikeabamboo/barangay-boundaries-repository/v2026.4.13.0/LICENSE",
+        "bytes": 1072,
+        "sha256": "4382ddd5f6cf65fcbc9bce08896978c2c3cb4c36288d6c20c95eed88975f892c",
+        "verification": "download digest; not listed in upstream checksum manifest"
+      }
+    ],
     "files": [
       {
-        "path": "barangays.geojson",
-        "bytes": 66937084,
-        "features": 42026,
-        "sha256": "10606e46cd7b4b34a61f4975f3568bb3c11a48fa355cbe3c4d78c3737e0fcfa9"
-      },
-      {
-        "path": "component_cities.geojson",
-        "bytes": 487789,
-        "features": 110,
-        "sha256": "5e286085b039906f1def9f8fd0a3d8f1231eb9843481034516900ae623378d81"
-      },
-      {
-        "path": "highly_urbanized_cities.geojson",
-        "bytes": 175318,
-        "features": 34,
-        "sha256": "23d2219c0ffaae891a09ba86034f51114c1a952ab7e3edc10d2adbb64d326ad1"
-      },
-      {
-        "path": "independent_component_cities.geojson",
-        "bytes": 24588,
-        "features": 6,
-        "sha256": "2671f15c1c650972dc157eda58ef3f657b44d2160b68544851c0edfde66b19a1"
-      },
-      {
-        "path": "municipalities.geojson",
-        "bytes": 5973581,
-        "features": 1485,
-        "sha256": "3c6d8f48f33dab01d6bd0b83a31229577817286a01ac23e5d290ddbd4c6f51ef"
+        "path": "regions.geojson",
+        "snapshot": "2023-10-24",
+        "namria_version": "2023-11-06",
+        "tolerance_degrees": "t0p005",
+        "format": "GeoJSON",
+        "bytes": 2955658,
+        "md5": "b84b7acabe33bbfc161d3817043ef36e",
+        "sha256": "d4dc71356f1b29f90e4f2737becd9f5216c26d2567f815fd0b9f85f71243d86b",
+        "features": 17,
+        "raw_path": "data/raw/boundaries/regions.geojson",
+        "url": "https://github.com/bendlikeabamboo/barangay-boundaries-repository/releases/download/v2026.4.13.0/regions.geojson"
       },
       {
         "path": "provinces.geojson",
+        "snapshot": "2023-10-24",
+        "namria_version": "2023-11-06",
+        "tolerance_degrees": "t0p005",
+        "format": "GeoJSON",
         "bytes": 3205680,
+        "md5": "f1977fffed10f01f46b12f62b2ecb0c9",
+        "sha256": "60d80617841f0ecad4cb1c304ab82740af68f206737a2fe2cab0ffdc0aedcfbe",
         "features": 82,
-        "sha256": "60d80617841f0ecad4cb1c304ab82740af68f206737a2fe2cab0ffdc0aedcfbe"
+        "raw_path": "data/raw/boundaries/provinces.geojson",
+        "url": "https://github.com/bendlikeabamboo/barangay-boundaries-repository/releases/download/v2026.4.13.0/provinces.geojson"
       },
       {
-        "path": "regions.geojson",
-        "bytes": 2955658,
-        "features": 17,
-        "sha256": "d4dc71356f1b29f90e4f2737becd9f5216c26d2567f815fd0b9f85f71243d86b"
+        "path": "municipalities.geojson",
+        "snapshot": "2023-10-24",
+        "namria_version": "2023-11-06",
+        "tolerance_degrees": "t0p005",
+        "format": "GeoJSON",
+        "bytes": 5973581,
+        "md5": "38e181ea160a7f8c125d8e88513514b8",
+        "sha256": "3c6d8f48f33dab01d6bd0b83a31229577817286a01ac23e5d290ddbd4c6f51ef",
+        "features": 1485,
+        "raw_path": "data/raw/boundaries/municipalities.geojson",
+        "url": "https://github.com/bendlikeabamboo/barangay-boundaries-repository/releases/download/v2026.4.13.0/municipalities.geojson"
+      },
+      {
+        "path": "component_cities.geojson",
+        "snapshot": "2023-10-24",
+        "namria_version": "2023-11-06",
+        "tolerance_degrees": "t0p005",
+        "format": "GeoJSON",
+        "bytes": 487789,
+        "md5": "3c24be75a8fa591f1920dceef68623c7",
+        "sha256": "5e286085b039906f1def9f8fd0a3d8f1231eb9843481034516900ae623378d81",
+        "features": 110,
+        "raw_path": "data/raw/boundaries/component_cities.geojson",
+        "url": "https://github.com/bendlikeabamboo/barangay-boundaries-repository/releases/download/v2026.4.13.0/component_cities.geojson"
+      },
+      {
+        "path": "highly_urbanized_cities.geojson",
+        "snapshot": "2023-10-24",
+        "namria_version": "2023-11-06",
+        "tolerance_degrees": "t0p005",
+        "format": "GeoJSON",
+        "bytes": 175318,
+        "md5": "b7191e6dc870c69e55c006a64ab48ce6",
+        "sha256": "23d2219c0ffaae891a09ba86034f51114c1a952ab7e3edc10d2adbb64d326ad1",
+        "features": 34,
+        "raw_path": "data/raw/boundaries/highly_urbanized_cities.geojson",
+        "url": "https://github.com/bendlikeabamboo/barangay-boundaries-repository/releases/download/v2026.4.13.0/highly_urbanized_cities.geojson"
+      },
+      {
+        "path": "independent_component_cities.geojson",
+        "snapshot": "2023-10-24",
+        "namria_version": "2023-11-06",
+        "tolerance_degrees": "t0p005",
+        "format": "GeoJSON",
+        "bytes": 24588,
+        "md5": "5a3f1e25115ceb4b30643554c48f47ba",
+        "sha256": "2671f15c1c650972dc157eda58ef3f657b44d2160b68544851c0edfde66b19a1",
+        "features": 6,
+        "raw_path": "data/raw/boundaries/independent_component_cities.geojson",
+        "url": "https://github.com/bendlikeabamboo/barangay-boundaries-repository/releases/download/v2026.4.13.0/independent_component_cities.geojson"
+      },
+      {
+        "path": "barangays.geojson",
+        "snapshot": "2023-10-24",
+        "namria_version": "2023-11-06",
+        "tolerance_degrees": "t0p005",
+        "format": "GeoJSON",
+        "bytes": 66937084,
+        "md5": "acf5d9329fcd4b79287bb9b47696f781",
+        "sha256": "10606e46cd7b4b34a61f4975f3568bb3c11a48fa355cbe3c4d78c3737e0fcfa9",
+        "features": 42026,
+        "raw_path": "data/raw/boundaries/barangays.geojson",
+        "url": "https://github.com/bendlikeabamboo/barangay-boundaries-repository/releases/download/v2026.4.13.0/barangays.geojson"
       }
     ],
     "normalized_boundaries": "data/generated/admin_boundaries.normalized.geojson",
-    "scoped_barangays": "data/generated/barangays",
     "lookup": "data/generated/admin_lookup.json",
-    "admin_features": 1733,
+    "scoped_barangays": "data/generated/barangays",
+    "barangay_index": "data/generated/barangays/index.json",
+    "coverage_report": "data/generated/boundary_coverage_report.json",
+    "admin_features": 1734,
     "barangay_features": 42026,
-    "caveat": "Open PSGC-coded geometry from PSA PSGC snapshots and NAMRIA shapefiles; verify unresolved coverage before authoritative use."
+    "levels": {
+      "region": {
+        "features": 17,
+        "unique_psgc_codes": 17,
+        "unmatched_features": 0,
+        "fuzzy_features": 0
+      },
+      "province": {
+        "features": 82,
+        "unique_psgc_codes": 82,
+        "unmatched_features": 0,
+        "fuzzy_features": 0
+      },
+      "city": {
+        "features": 1635,
+        "unique_psgc_codes": 1625,
+        "unmatched_features": 1,
+        "fuzzy_features": 20
+      },
+      "barangay": {
+        "features": 42026,
+        "unique_psgc_codes": 41803,
+        "unmatched_features": 0,
+        "fuzzy_features": 3255
+      }
+    },
+    "coverage_complete": false,
+    "geometry_preserved": true,
+    "artifacts": {
+      "admin_boundaries": {
+        "path": "data/generated/admin_boundaries.normalized.geojson",
+        "bytes": 5483583,
+        "sha256": "4ddf3ce4db0b8faf23cb1bf2b40ee4f98540574e8be38b158f1ba54bfb12e69e"
+      },
+      "admin_lookup": {
+        "path": "data/generated/admin_lookup.json",
+        "bytes": 1392124,
+        "sha256": "740bee828e4f6f939aa41a2602889b205f3e49d3341a23f1821db1195b7dd422"
+      },
+      "barangay_index": {
+        "path": "data/generated/barangays/index.json",
+        "bytes": 1014519,
+        "sha256": "68526415ba4ee8b48025818f292141e2446745f08ae2b7bc5dfca20190519b46"
+      },
+      "coverage_report": {
+        "path": "data/generated/boundary_coverage_report.json",
+        "bytes": 62333,
+        "sha256": "6925e6869201801b1bb47f01bd300fff958798afdf0f7d9d9d045297a8f8458b"
+      }
+    },
+    "caveat": "Missing source polygons are not synthesized. Fuzzy matches and repeated PSGC assignments are preserved and need review. This release uses the 2023-10-24 PSGC snapshot, not the current administrative hierarchy. HUC/ICC geographic province fields do not imply administrative subordination.",
+    "detail": {
+      "repository": "altcoder/philippines-psgc-shapefiles",
+      "commit": "a44a73091f19e4950dbdc0d7cb77a5e17b101a0a",
+      "source_version": "2023-11-06",
+      "snapshot": "2023-11-06",
+      "source_tier": "Original NAMRIA/OCHA shapefile mirrored by a community repository; not a new authoritative release",
+      "provenance_url": "https://github.com/altcoder/philippines-psgc-shapefiles/tree/a44a73091f19e4950dbdc0d7cb77a5e17b101a0a/data/2023/BgySubMuns",
+      "attribution": "Administrative boundaries: NAMRIA / PSA, distributed through OCHA HDX. The mirror's code license is not a blanket data license.",
+      "tolerance_degrees": 0,
+      "crs": "EPSG:4326",
+      "geometry": "Original unsimplified polygons; existing curated identifiers and hierarchy preserved",
+      "source_records": 42048,
+      "features": 42026,
+      "city_scopes": 1633,
+      "province_scopes": 88,
+      "compressed_bytes": 190928525,
+      "uncompressed_bytes": 696552153,
+      "fallback_features": 0,
+      "coverage_complete": false,
+      "national_geometry": "Original coarse national and region layers retained for performance",
+      "components": [
+        {
+          "filename": "phl_admbnda_adm4_psa_namria_20231106.shp",
+          "bytes": 272270908,
+          "sha256": "a90587b5bf1579e6afb0309282f5e39d33c9c5d3974e32868eb9dfe30ef3b0e6",
+          "lfs_verified": true,
+          "url": "https://media.githubusercontent.com/media/altcoder/philippines-psgc-shapefiles/a44a73091f19e4950dbdc0d7cb77a5e17b101a0a/data/2023/BgySubMuns/phl_admbnda_adm4_psa_namria_20231106.shp",
+          "metadata_url": "https://raw.githubusercontent.com/altcoder/philippines-psgc-shapefiles/a44a73091f19e4950dbdc0d7cb77a5e17b101a0a/data/2023/BgySubMuns/phl_admbnda_adm4_psa_namria_20231106.shp"
+        },
+        {
+          "filename": "phl_admbnda_adm4_psa_namria_20231106.shx",
+          "bytes": 336484,
+          "sha256": "dc402a56a32a4d5420cd733d91fcc2c061bd0398e70d9a8647b6eb38e26b41dd",
+          "lfs_verified": false,
+          "url": "https://raw.githubusercontent.com/altcoder/philippines-psgc-shapefiles/a44a73091f19e4950dbdc0d7cb77a5e17b101a0a/data/2023/BgySubMuns/phl_admbnda_adm4_psa_namria_20231106.shx",
+          "metadata_url": "https://raw.githubusercontent.com/altcoder/philippines-psgc-shapefiles/a44a73091f19e4950dbdc0d7cb77a5e17b101a0a/data/2023/BgySubMuns/phl_admbnda_adm4_psa_namria_20231106.shx"
+        },
+        {
+          "filename": "phl_admbnda_adm4_psa_namria_20231106.dbf",
+          "bytes": 43730498,
+          "sha256": "ee46053ed430674c6d48cbc86fd5cac37ee0725d09429637acd52f67694dee0c",
+          "lfs_verified": true,
+          "url": "https://media.githubusercontent.com/media/altcoder/philippines-psgc-shapefiles/a44a73091f19e4950dbdc0d7cb77a5e17b101a0a/data/2023/BgySubMuns/phl_admbnda_adm4_psa_namria_20231106.dbf",
+          "metadata_url": "https://raw.githubusercontent.com/altcoder/philippines-psgc-shapefiles/a44a73091f19e4950dbdc0d7cb77a5e17b101a0a/data/2023/BgySubMuns/phl_admbnda_adm4_psa_namria_20231106.dbf"
+        },
+        {
+          "filename": "phl_admbnda_adm4_psa_namria_20231106.prj",
+          "bytes": 146,
+          "sha256": "4e0fe7f616bb23140c8fc3a9f2154ce5149f4c9cad0d0e65c261558f5cad8e33",
+          "lfs_verified": false,
+          "url": "https://raw.githubusercontent.com/altcoder/philippines-psgc-shapefiles/a44a73091f19e4950dbdc0d7cb77a5e17b101a0a/data/2023/BgySubMuns/phl_admbnda_adm4_psa_namria_20231106.prj",
+          "metadata_url": "https://raw.githubusercontent.com/altcoder/philippines-psgc-shapefiles/a44a73091f19e4950dbdc0d7cb77a5e17b101a0a/data/2023/BgySubMuns/phl_admbnda_adm4_psa_namria_20231106.prj"
+        },
+        {
+          "filename": "phl_admbnda_adm4_psa_namria_20231106.cpg",
+          "bytes": 6,
+          "sha256": "146d6789ffe033a5297c1ad046e6a62ee35319b86b021444f05b6ea2aa8a1f4a",
+          "lfs_verified": false,
+          "url": "https://raw.githubusercontent.com/altcoder/philippines-psgc-shapefiles/a44a73091f19e4950dbdc0d7cb77a5e17b101a0a/data/2023/BgySubMuns/phl_admbnda_adm4_psa_namria_20231106.cpg",
+          "metadata_url": "https://raw.githubusercontent.com/altcoder/philippines-psgc-shapefiles/a44a73091f19e4950dbdc0d7cb77a5e17b101a0a/data/2023/BgySubMuns/phl_admbnda_adm4_psa_namria_20231106.cpg"
+        }
+      ]
+    }
   }
 }

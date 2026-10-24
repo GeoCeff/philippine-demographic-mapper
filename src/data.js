@@ -2,12 +2,16 @@
 
 const LEVELS = [
   { id: "region", label: "Region" },
-  { id: "province", label: "Province" },
+  { id: "province", label: "Province / independent city" },
   { id: "city", label: "City / municipality" },
   { id: "barangay", label: "Barangay" }
 ];
 
 const PALETTES = {
+  density: {
+    label: "Population-style coral",
+    colors: ["#fff5eb", "#fee6ce", "#fdd0a2", "#fdae6b", "#fd8d3c", "#e6550d", "#a63603"]
+  },
   emerald: {
     label: "Laguna green",
     colors: ["#eef7e9", "#c9e8bf", "#8acc86", "#4aad68", "#198754", "#006d42", "#004b2d"]

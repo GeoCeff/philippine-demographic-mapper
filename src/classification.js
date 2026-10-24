@@ -1,12 +1,6 @@
 "use strict";
 
 function getFeatureFill(feature, value, scale) {
-  if (state.selectedCode === feature.code) {
-    return state.highlightColor;
-  }
-  if (state.classification === "highlight") {
-    return Number.isFinite(value) ? state.highlightColor : state.missingColor;
-  }
   if (!Number.isFinite(value)) {
     return state.missingColor;
   }
@@ -14,11 +8,19 @@ function getFeatureFill(feature, value, scale) {
 }
 
 function buildScale(features, valueByCode) {
-  const values = features.map((feature) => valueByCode.get(feature.code)).filter(Number.isFinite).sort((a, b) => a - b);
+  const values = [...new Set(features.map((feature) => feature.code))].map((code) => valueByCode.get(code)).filter(Number.isFinite).sort((a, b) => a - b);
   const palette = PALETTES[state.palette] || PALETTES.bay;
   const customThresholds = parseThresholds(state.customThresholds);
-  const colorCount = state.classification === "continuous" ? palette.colors.length : state.classification === "custom" && customThresholds.length ? customThresholds.length + 1 : state.bins;
-  const colors = sampleColors(palette.colors, colorCount);
+  const custom = Array.isArray(state.customColors) ? state.customColors.filter((color) => typeof color === "string" && /^#[0-9a-f]{6}$/i.test(color)).slice(0, 32) : [];
+  const useCustom = custom.length >= (state.classification === "highlight" ? 1 : 2) && !(state.classification === "custom" && customThresholds.length >= 32);
+  const ramp = (useCustom ? custom : palette.colors).slice();
+  if (state.reverseColors) ramp.reverse();
+  if (state.classification === "highlight") {
+    const color = custom.length ? ramp[0] : state.highlightColor;
+    return { colors: [color], colorForValue: () => color };
+  }
+  const colorCount = state.classification === "continuous" ? ramp.length : state.classification === "custom" && customThresholds.length ? customThresholds.length + 1 : state.bins;
+  const colors = sampleColors(ramp, colorCount);
 
   if (!values.length) {
     return { colors, colorForValue: () => colors[0] };
@@ -32,7 +34,7 @@ function buildScale(features, valueByCode) {
       colors,
       colorForValue(value) {
         const t = max === min ? 1 : (value - min) / (max - min);
-        return interpolateRamp(palette.colors, clamp(t, 0, 1));
+        return interpolateRamp(ramp, clamp(t, 0, 1));
       }
     };
   }
@@ -52,7 +54,7 @@ function buildScale(features, valueByCode) {
   if (state.classification === "custom" && customThresholds.length) {
     return {
       colors,
-      labels: legendLabels(min, max, customThresholds),
+      labels: ["−∞", ...customThresholds.map(formatNumber), "+∞"],
       colorForValue(value) {
         const bin = customThresholds.findIndex((threshold) => value <= threshold);
         return colors[bin === -1 ? colors.length - 1 : bin];
@@ -73,7 +75,7 @@ function buildScale(features, valueByCode) {
 }
 
 function sampleColors(colors, count) {
-  if (count >= colors.length) return colors.slice();
+  if (count === colors.length) return colors.slice();
   if (count <= 1) return [colors[colors.length - 1]];
   return Array.from({ length: count }, (_, index) => interpolateRamp(colors, index / (count - 1)));
 }
@@ -112,11 +114,12 @@ function quantile(sortedValues, p) {
 }
 
 function parseThresholds(value) {
-  return String(value || "")
+  const thresholds = String(value ?? "")
     .split(",")
+    .filter((item) => item.trim() !== "")
     .map((item) => Number(item.trim()))
-    .filter(Number.isFinite)
-    .sort((a, b) => a - b);
+    .filter(Number.isFinite);
+  return [...new Set(thresholds)].sort((a, b) => a - b);
 }
 
 function legendLabels(min, max, thresholds) {

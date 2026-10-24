@@ -6,6 +6,8 @@ const files = [
   "server.mjs",
   "tools/data-pipeline.mjs",
   "tools/fetch-boundaries.mjs",
+  "tools/fetch-boundary-detail.mjs",
+  "tools/read-shapefile.mjs",
   "tools/check-boundaries.mjs",
   "tools/check-syntax.mjs",
   "tools/smoke-test.mjs",

@@ -1,0 +1,28 @@
+import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
+import vm from "node:vm";
+
+const context = vm.createContext({ console });
+for (const file of ["src/render-utils.js", "src/map-performance.js"]) vm.runInContext(await readFile(file, "utf8"), context);
+const ring = (x, y, size) => [[x,y],[x+size,y],[x+size,y+size],[x,y+size]].map(([x,y])=>({x,y}));
+const features = Array.from({length: 42026}, (_, i) => ({code:String(i), polygonGroups:[[ring(i % 210, Math.floor(i / 210), 0.8)]]}));
+for (const f of features) f.polygons = f.polygonGroups.flat();
+const geometry = (f) => ({bounds:context.boundsFromFeatures([f])});
+const started = performance.now(), index = context.createMapSpatialIndex(features, geometry);
+assert.equal(index.hit({x:0.4,y:0.4}).feature,features[0]);
+assert.equal(index.hit({x:209.4,y:199.4}).feature,features[41999]);
+assert.equal(index.hit({x:-1,y:0}), null);
+assert.equal(index.hit({x:0.9,y:0.9}),null,"space between polygons must remain empty");
+assert(index.query({minX:0,minY:0,maxX:2,maxY:2}).length <= 9, "a local query must not scan the country");
+const hole = {polygons:[],polygonGroups:[[ring(0,0,10),ring(2,2,2)],[ring(20,20,1)]]};
+hole.polygons=hole.polygonGroups.flat();
+assert(context.mapFeatureContains(hole,{x:1,y:1}));
+assert(!context.mapFeatureContains(hole,{x:3,y:3}),"holes cannot select the surrounding place");
+assert(context.mapFeatureContains(hole,{x:20.5,y:20.5}),"separate islands remain interactive");
+const original = JSON.stringify(hole), path = context.batchPathFromFeature(hole);
+assert.equal((path.match(/M /g)||[]).length,3);
+assert.equal(JSON.stringify(hole),original,"batch winding must not mutate source coordinates");
+const overlapping = context.createMapSpatialIndex([features[0], {...features[0],code:"top"}],geometry);
+assert.equal(overlapping.hit({x:0.4,y:0.4}).feature.code,"top","last drawn polygon wins overlap hit testing");
+assert.equal(overlapping.hit({x:0.4,y:0.4},({record})=>-record).feature.code,"0","custom paint ordering must drive hit testing for overlapping color batches");
+console.log(`42,026-feature spatial index, local hit tests, holes, islands and batch winding passed (${Math.round(performance.now()-started)}ms).`);

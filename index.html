@@ -3,196 +3,279 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Demographic Map Maker</title>
+    <title>Philippine Map Maker</title>
+    <meta name="color-scheme" content="light dark">
+    <link rel="preload" href="assets/fonts/geist.woff2" as="font" type="font/woff2" crossorigin>
     <link rel="stylesheet" href="styles.css">
     <script src="src/data.js" defer></script>
     <script src="src/state.js" defer></script>
     <script src="src/utils.js" defer></script>
+    <script src="src/boundary-detail.js" defer></script>
     <script src="src/boundary-loader.js" defer></script>
     <script src="src/csv.js" defer></script>
     <script src="src/matching.js" defer></script>
     <script src="src/classification.js" defer></script>
     <script src="src/render-utils.js" defer></script>
+    <script src="src/map-performance.js" defer></script>
     <script src="src/export.js" defer></script>
+    <script src="src/ui.js" defer></script>
     <script src="src/app.js" defer></script>
   </head>
   <body>
     <div class="app-shell">
-      <aside class="sidebar" aria-label="Map controls">
-        <div class="brand">
-          <span class="brand-mark" aria-hidden="true"></span>
-          <div>
-            <h1>Demographic Map Maker</h1>
-            <p>Philippine choropleth studio</p>
-          </div>
+      <header class="appbar">
+        <div class="app-brand">
+          <span class="brand-mark" aria-hidden="true">ph.</span>
+          <div><span class="eyebrow">A place for your data</span><h1 class="app-name">Philippine Map Maker</h1></div>
         </div>
+        <label class="project-title">
+          <span class="visually-hidden">Project title</span>
+          <input id="projectNameInput" type="text" value="Philippines by province" aria-label="Project title" autocomplete="off">
+        </label>
+        <label class="theme-control"><span class="visually-hidden">Interface theme</span><select id="themeSelect" aria-label="Interface theme" title="Interface theme; map and export colors stay as you set them"><option value="system">System</option><option value="light">Light</option><option value="dark">Dark</option></select></label>
+        <nav class="project-actions" aria-label="Project actions">
+          <button id="loadProjectButton" type="button" title="Open an editable project file">Open</button>
+          <button id="saveProjectButton" type="button" title="Save an editable project file">Save</button>
+          <button id="openExportButton" class="primary-button" type="button">Export map</button>
+        </nav>
+        <input id="projectInput" type="file" accept=".json,application/json" hidden>
+      </header>
 
-        <section class="panel">
-          <h2>Geography</h2>
-          <label class="field">
-            <span>Scope</span>
-            <select id="scopeSelect"></select>
-          </label>
-          <label class="field">
-            <span>Map level</span>
-            <select id="levelSelect"></select>
-          </label>
-          <label class="field">
-            <span>Boundary source</span>
-            <select id="boundarySourceSelect">
-              <option value="fixture">Built-in sample fixtures</option>
-              <option value="generated">Generated normalized GeoJSON</option>
-            </select>
-          </label>
-          <label class="field">
-            <span>Find PSGC / name</span>
-            <input id="geographySearchInput" type="search" list="geographyOptions" placeholder="Quezon City or 1374040000">
-            <datalist id="geographyOptions"></datalist>
-          </label>
-          <div class="segmented" role="group" aria-label="Layer visibility">
-            <button id="fitMapButton" type="button">Fit</button>
-            <button id="clearSelectionButton" type="button">Clear</button>
-          </div>
-          <p id="densityNote" class="note"></p>
-        </section>
-
-        <section class="panel">
-          <h2>Data</h2>
-          <label class="file-drop">
-            <span>Import CSV</span>
-            <input id="csvInput" type="file" accept=".csv,text/csv">
-          </label>
-          <div class="sample-row" aria-label="Sample datasets">
-            <button id="loadRegionSample" type="button">Region sample</button>
-            <button id="loadProvinceSample" type="button">Province sample</button>
-            <button id="loadBarangaySample" type="button">Barangay sample</button>
-          </div>
-          <label class="field">
-            <span>PSGC column</span>
-            <select id="keyColumnSelect"></select>
-          </label>
-          <label class="field">
-            <span>Value column</span>
-            <select id="valueColumnSelect"></select>
-          </label>
-          <div id="matchSummary" class="summary-grid"></div>
-          <button id="exportIssuesButton" type="button">Export issues CSV</button>
-        </section>
-
-        <section class="panel">
-          <h2>Style</h2>
-          <label class="field">
-            <span>Palette</span>
-            <select id="paletteSelect"></select>
-          </label>
-          <label class="field">
-            <span>Classification</span>
-            <select id="classificationSelect">
-              <option value="equal">Equal interval</option>
-              <option value="quantile">Quantile</option>
-              <option value="continuous">Continuous</option>
-              <option value="highlight">Highlight only</option>
-              <option value="custom">Custom thresholds</option>
-            </select>
-          </label>
-          <label class="field">
-            <span>Thresholds</span>
-            <input id="customThresholdsInput" type="text" value="" placeholder="10, 25, 50">
-          </label>
-          <label class="field inline-field">
-            <span>Bins</span>
-            <input id="binsInput" type="range" min="3" max="7" value="5">
-            <output id="binsOutput">5</output>
-          </label>
-          <label class="field inline-field">
-            <span>Border</span>
-            <input id="borderColorInput" type="color" value="#ffffff">
-            <input id="borderWidthInput" type="number" min="0" max="8" step="0.25" value="1.5">
-          </label>
-          <label class="field inline-field">
-            <span>Missing</span>
-            <input id="missingColorInput" type="color" value="#e8ebe6">
-            <input id="highlightColorInput" type="color" value="#f05a41">
-          </label>
-          <label class="field inline-field">
-            <span>Background</span>
-            <input id="backgroundColorInput" type="color" value="#f6f7f5">
-            <label class="toggle"><input id="transparentInput" type="checkbox"> Transparent</label>
-          </label>
-          <p id="contrastNote" class="note"></p>
-        </section>
-
-        <section class="panel">
-          <h2>Export</h2>
-          <label class="field">
-            <span>Title</span>
-            <input id="layoutTitleInput" type="text" value="Regional sample map">
-          </label>
-          <label class="field">
-            <span>Subtitle</span>
-            <input id="layoutSubtitleInput" type="text" value="PSGC-coded demographic values">
-          </label>
-          <label class="field">
-            <span>Source note</span>
-            <textarea id="sourceNoteInput" rows="2">Source: sample data and boundary fixtures. Not official boundaries.</textarea>
-          </label>
-          <label class="toggle"><input id="showLayoutTextInput" type="checkbox" checked> Include title and source note</label>
-          <div class="export-grid">
-            <label class="field">
-              <span>Width</span>
-              <input id="exportWidthInput" type="number" min="640" max="5000" step="10" value="1600">
-            </label>
-            <label class="field">
-              <span>Height</span>
-              <input id="exportHeightInput" type="number" min="640" max="5000" step="10" value="2000">
-            </label>
-          </div>
-          <div class="segmented" role="group" aria-label="Export presets">
-            <button data-preset="square" type="button">1:1</button>
-            <button data-preset="portrait" type="button">4:5</button>
-            <button data-preset="report" type="button">Report</button>
-          </div>
-          <div class="action-row">
-            <button id="exportPngButton" class="primary-button" type="button">Export PNG</button>
-            <button id="exportSvgButton" type="button">Export SVG</button>
-            <button id="saveProjectButton" type="button">Save JSON</button>
-            <button id="loadProjectButton" type="button">Load JSON</button>
-          </div>
-          <input id="projectInput" type="file" accept=".json,application/json" hidden>
-        </section>
-      </aside>
-
-      <main class="workspace">
-        <header class="topbar">
-          <div>
-            <p id="activePath" class="eyebrow">Philippines / Region</p>
-            <h2 id="mapTitle">Untitled demographic map</h2>
-          </div>
-          <div class="status-pill" id="sourceStatus">Sample boundary fixtures</div>
-        </header>
-
-        <section class="canvas-layout">
-          <div class="map-stage" id="mapStage">
-            <svg id="mapSvg" role="img" aria-labelledby="mapTitle" preserveAspectRatio="xMidYMid meet"></svg>
-            <div id="mapTooltip" class="tooltip" hidden></div>
+      <div class="editor-layout">
+        <aside id="controlsPanel" class="controls-panel" data-open="false" aria-label="Map tools">
+          <header class="panel-header">
+            <h2 id="panelHeading">Places</h2>
+            <button id="closeControlsButton" class="close-panel-button" type="button" aria-label="Close tools and return to map">Close</button>
+          </header>
+          <div id="taskTabs" class="task-tabs" role="tablist" aria-label="Map tasks">
+            <button id="tab-places" type="button" role="tab" data-panel="places" aria-selected="true" aria-controls="panel-places">Places</button>
+            <button id="tab-data" type="button" role="tab" data-panel="data" aria-selected="false" aria-controls="panel-data" tabindex="-1">Data</button>
+            <button id="tab-appearance" type="button" role="tab" data-panel="appearance" aria-selected="false" aria-controls="panel-appearance" tabindex="-1">Appearance</button>
+            <button id="tab-export" type="button" role="tab" data-panel="export" aria-selected="false" aria-controls="panel-export" tabindex="-1">Export</button>
           </div>
 
-          <aside class="inspector" aria-label="Map details">
-            <section>
-              <h2>Selection</h2>
+          <div class="panel-scroll">
+            <section id="panel-places" class="task-panel" role="tabpanel" aria-labelledby="tab-places" tabindex="0">
+              <p class="panel-intro"><span class="eyebrow">01 — Geography</span>Choose your places.</p>
+              <label class="field"><span>Map level</span><select id="levelSelect"></select></label>
+              <label class="field">
+                <span>Search places</span>
+                <input id="geographySearchInput" type="search" list="geographyOptions" placeholder="Place name or code" aria-describedby="searchStatus" autocomplete="off">
+                <datalist id="geographyOptions"></datalist>
+              </label>
+              <p id="searchStatus" class="note" role="status">Search by place name or its PSGC place code.</p>
+              <div class="field-group">
+                <label class="field"><span>Narrow the area list</span><input id="areaFilterInput" type="search" placeholder="Filter areas by name" autocomplete="off"></label>
+                <label class="field"><span>Area</span><select id="scopeSelect" aria-describedby="areaHelp"></select></label>
+                <p id="areaHelp" class="note">The area limits which places appear. The map level chooses the boundaries shown.</p>
+              </div>
+              <details class="more-options">
+                <summary>Advanced and sample maps</summary>
+                <div class="disclosure-content">
+                  <label class="field"><span>Boundary source</span><select id="boundarySourceSelect">
+                    <option value="generated">Real Philippine boundaries · 2023</option>
+                    <option value="fixture">Simplified sample shapes</option>
+                  </select></label>
+                  <p class="note">Sample maps use demonstration shapes and made-up values.</p>
+                  <div class="stacked-actions" aria-label="Demonstration maps">
+                    <button id="loadRegionSample" type="button">Region sample map</button>
+                    <button id="loadProvinceSample" type="button">Province sample map</button>
+                    <button id="loadBarangaySample" type="button">Barangay sample map</button>
+                  </div>
+                </div>
+              </details>
+            </section>
+
+            <section id="panel-data" class="task-panel" role="tabpanel" aria-labelledby="tab-data" tabindex="0" hidden>
+              <p class="panel-intro"><span class="eyebrow">02 — Statistics</span>Give your map meaning.</p>
+              <p class="note">The template has place identifiers and blank statistic and label columns. Keep identifiers unchanged, including leading zeros. PSGC means Philippine Standard Geographic Code: it identifies a place, not its population.</p>
+              <div class="stacked-actions">
+                <button id="downloadTemplateButton" type="button">Download CSV template</button>
+                <label class="file-upload primary-button"><span>Import CSV</span><input id="csvInput" type="file" accept=".csv,text/csv" aria-label="Import CSV"></label>
+                <button id="loadExampleValues" type="button">Try sample data</button>
+              </div>
+              <p id="dataKindNotice" class="note">No data added yet. Sample numbers are illustrative, not demographic observations.</p>
+              <label class="field"><span>Statistic name or unit</span><input id="statisticLabelInput" type="text" value="Value" maxlength="60" placeholder="e.g. People per km²" aria-describedby="statisticNameHelp"></label>
+              <p id="statisticNameHelp" class="note">Names your numbers in the legend and place details. Changing this label does not convert the numbers.</p>
+              <div id="dataColumns" class="field-group" hidden>
+                <label class="field"><span>Place identifier column</span><select id="keyColumnSelect"></select></label>
+                <label class="field"><span>Statistic column</span><select id="valueColumnSelect"></select></label>
+                <label class="field"><span>Map annotation column (optional)</span><select id="labelColumnSelect"></select></label>
+                <div id="matchSummary" class="summary-grid" aria-label="Import summary"></div>
+              </div>
+              <details id="importReviewDetails" class="more-options" hidden>
+                <summary>Review import</summary>
+                <div class="disclosure-content">
+                  <p class="note">Inspect rows with missing, invalid, repeated or out-of-area place codes.</p>
+                  <div id="reviewTable"></div>
+                  <button id="exportIssuesButton" type="button">Download rows needing attention</button>
+                </div>
+              </details>
+            </section>
+
+            <section id="panel-appearance" class="task-panel" role="tabpanel" aria-labelledby="tab-appearance" tabindex="0" hidden>
+              <p class="panel-intro"><span class="eyebrow">03 — Design</span>Make it your own.</p>
+              <div class="field-group">
+                <label class="field"><span>Color palette</span><select id="paletteSelect"></select></label>
+                <div id="palettePreview" class="palette-preview" aria-hidden="true"></div>
+                <label class="toggle"><input id="reverseColorsInput" type="checkbox"><span>Reverse colors</span></label>
+              </div>
+              <label class="field"><span>Label display</span><select id="labelModeSelect">
+                <option value="none">No labels</option><option value="name">Place names</option>
+                <option value="value">Statistics</option><option value="both">Names and statistics</option>
+                <option value="custom">Custom labels only</option>
+              </select></label>
+              <label class="field range-field"><span>Label size</span><input id="labelSizeInput" type="range" min="6" max="24" value="10"></label>
+              <label class="toggle"><input id="showMapLegendInput" type="checkbox" checked><span>Show legend on map and exports</span></label>
+              <p id="labelStatus" class="note">Dense labels may be hidden. Zoom in or select a place to see more.</p>
+              <details class="more-options">
+                <summary>Legend</summary>
+                <div class="disclosure-content">
+                  <label class="field"><span>Legend title</span><input id="legendTitleInput" type="text" maxlength="160" placeholder="Use statistic name"></label>
+                  <p class="note">Leave the title or a group label blank to use its automatic text. Editing a label does not change the numbers or color breaks.</p>
+                  <label class="field range-field"><span>Legend size <output id="legendScaleOutput" for="legendScaleInput">1.0×</output></span><input id="legendScaleInput" type="range" min="0.6" max="2" step="0.1" value="1"></label>
+                  <label class="field color-field"><span>Legend text color</span><input id="legendTextColorInput" type="color" value="#20231f"></label>
+                  <label class="field color-field"><span>Legend card color</span><input id="legendBackgroundColorInput" type="color" value="#ffffff"></label>
+                  <label class="field range-field"><span>Card opacity <output id="legendOpacityOutput" for="legendBackgroundOpacityInput">92%</output></span><input id="legendBackgroundOpacityInput" type="range" min="0" max="1" step="0.01" value="0.92"></label>
+                  <label class="toggle"><input id="legendShowMissingInput" type="checkbox" checked><span>Show places without a statistic in legend</span></label>
+                  <div id="legendMissingOptions"><label class="field"><span>Missing-statistic label</span><input id="legendMissingLabelInput" type="text" maxlength="160" placeholder="No statistic" value="No statistic"></label></div>
+                  <details class="more-options">
+                    <summary>Color groups and labels</summary>
+                    <div class="disclosure-content">
+                      <p id="classControlsStatus" class="note">Group colors also change the map. Empty labels use the calculated ranges.</p>
+                      <div id="legendClassControls" class="legend-class-controls"></div>
+                      <button id="resetClassStylesButton" type="button">Reset group colors and labels</button>
+                    </div>
+                  </details>
+                </div>
+              </details>
+              <details class="more-options">
+                <summary>Map text and layout</summary>
+                <div class="disclosure-content">
+                  <label class="field color-field"><span>Title and source text color</span><input id="layoutTextColorInput" type="color" value="#20231f"></label>
+                  <label class="field range-field"><span>Title and source text size <output id="layoutTextScaleOutput" for="layoutTextScaleInput">1.0×</output></span><input id="layoutTextScaleInput" type="range" min="0.5" max="2" step="0.1" value="1"></label>
+                  <label class="field"><span>Position an item</span><select id="layoutItemSelect"><option value="legend">Legend</option><option value="title">Title</option><option value="subtitle">Subtitle</option><option value="source">Source note</option></select></label>
+                  <p id="layoutPositionHelp" class="note">Positions use the item's top-left corner. You can also choose Arrange map above the canvas to drag items.</p>
+                  <div class="export-grid">
+                    <label class="field"><span>From left (%)</span><input id="layoutXInput" type="number" min="0" max="100" step="0.1" value="0" aria-describedby="layoutPositionHelp"></label>
+                    <label class="field"><span>From top (%)</span><input id="layoutYInput" type="number" min="0" max="100" step="0.1" value="0" aria-describedby="layoutPositionHelp"></label>
+                  </div>
+                  <label class="field"><span>Position preset</span><select id="layoutPresetSelect"><option value="top-left">Top left</option><option value="top-right">Top right</option><option value="bottom-left">Bottom left</option><option value="bottom-right">Bottom right</option><option value="center">Center</option></select></label>
+                  <button id="applyLayoutPresetButton" type="button">Apply position preset</button>
+                  <button id="resetLayoutButton" type="button">Reset layout positions</button>
+                  <p class="note">Outside Arrange mode, dragging pans the map. Layout positions are kept in saved projects and map downloads.</p>
+                </div>
+              </details>
+              <details class="more-options">
+                <summary>More options</summary>
+                <div class="disclosure-content">
+                  <label class="field"><span>Color grouping</span><select id="classificationSelect" aria-describedby="classificationHelp">
+                    <option value="equal">Equal value ranges</option>
+                    <option value="quantile">Equal numbers of places</option>
+                    <option value="continuous">Smooth color scale</option>
+                    <option value="highlight">Highlight places with values</option>
+                    <option value="custom">Custom break values</option>
+                  </select></label>
+                  <p id="classificationHelp" class="note">Equal value ranges split the full statistic range into equal-sized groups.</p>
+                  <div id="thresholdsField" hidden><label class="field"><span>Break values</span><input id="customThresholdsInput" type="text" value="" placeholder="10, 25, 50" aria-describedby="breakHelp"></label><p id="breakHelp" class="note">Separate values with commas.</p></div>
+                  <div id="binsField"><label class="field range-field"><span>Number of color groups <output id="binsOutput" for="binsInput">7</output></span><input id="binsInput" type="range" min="3" max="7" value="7"></label></div>
+                  <label class="field color-field"><span>Boundary color</span><input id="borderColorInput" type="color" value="#ffffff"></label>
+                  <label class="field"><span>Boundary width</span><input id="borderWidthInput" type="number" min="0" max="8" step="0.25" value="0.45"></label>
+                  <label class="field color-field"><span>Missing-data color</span><input id="missingColorInput" type="color" value="#e8ebe6"></label>
+                  <label class="field color-field"><span>Selected-place color</span><input id="highlightColorInput" type="color" value="#f05a41"></label>
+                  <label class="field color-field"><span>Background color</span><input id="backgroundColorInput" type="color" value="#ffffff"></label>
+                  <label class="toggle"><input id="transparentInput" type="checkbox"><span>Transparent background</span></label>
+                  <p id="contrastNote" class="note" role="status"></p>
+                </div>
+              </details>
+            </section>
+
+            <section id="panel-export" class="task-panel" role="tabpanel" aria-labelledby="tab-export" tabindex="0" hidden>
+              <p class="panel-intro"><span class="eyebrow">04 — Output</span>Ready to share.</p>
+              <p class="note">Panning and zooming determine what is included. A different image shape may add margins to keep the full view.</p>
+              <label class="field"><span>Title</span><input id="layoutTitleInput" type="text" value="Philippines by province"></label>
+              <label class="field"><span>Subtitle</span><input id="layoutSubtitleInput" type="text" value="Add your statistics by place code"></label>
+              <label class="field"><span>Source note</span><textarea id="sourceNoteInput" rows="3">Boundaries: PSA / NAMRIA, 2023 snapshot. Coverage gaps and upstream simplification apply.</textarea></label>
+              <label class="toggle"><input id="showLayoutTextInput" type="checkbox" checked><span>Show title and source note</span></label>
+              <p class="note">Legend and background settings are in <button class="text-button" type="button" data-open-panel="appearance">Appearance</button>.</p>
+              <label class="field"><span>Format</span><select id="exportFormatSelect"><option value="png">PNG image</option><option value="svg">SVG vector image</option></select></label>
+              <label class="field"><span>Size</span><select id="exportSizeSelect"><option value="square">Square · 1600 × 1600</option><option value="portrait" selected>Portrait · 1600 × 2000</option><option value="report">Report · 2400 × 1800</option><option value="custom">Custom size</option></select></label>
+              <div id="customExportSize" class="export-grid" hidden>
+                <label class="field"><span>Width in pixels</span><input id="exportWidthInput" type="number" min="640" max="5000" step="10" value="1600"></label>
+                <label class="field"><span>Height in pixels</span><input id="exportHeightInput" type="number" min="640" max="5000" step="10" value="2000"></label>
+              </div>
+              <button id="downloadMapButton" class="primary-button full-width" type="button">Download PNG</button>
+              <p class="note">To keep editing later, use Save in the topbar. Your project is saved as a JSON file.</p>
+            </section>
+
+            <section id="placeEditor" class="task-panel place-editor" aria-label="Selected place" hidden>
+              <button id="backToControlsButton" class="back-button" type="button">← Back to controls</button>
               <div id="selectionDetails" class="selection-details"></div>
+              <label class="field"><span>Statistic</span><input id="selectedPlaceValue" type="text" inputmode="decimal" placeholder="e.g. 1250.5" aria-describedby="placeValueSource"></label>
+              <p id="placeValueSource" class="note">Applied edits take priority over your CSV. A blank statistic clears the value; missing is not zero.</p>
+              <label class="field"><span>Custom label</span><input id="selectedPlaceLabel" type="text" maxlength="160" placeholder="Optional annotation" aria-describedby="customLabelHelp"></label>
+              <p id="customLabelHelp" class="note">Adds a map annotation without renaming the place. Choose how to show it in Appearance.</p>
+              <button id="applyPlaceButton" class="primary-button" type="button">Apply changes</button>
+              <button id="resetPlaceButton" type="button">Use CSV value again</button>
+              <button id="drilldownButton" type="button">View child map</button>
+              <p id="editStatus" class="note" role="status"></p>
+              <p class="note">Dense labels may be hidden until you zoom in or select a place.</p>
             </section>
-            <section>
-              <h2>Legend</h2>
-              <div id="legend"></div>
-            </section>
-            <section>
-              <h2>Match Review</h2>
-              <div id="reviewTable"></div>
-            </section>
-          </aside>
-        </section>
-      </main>
+          </div>
+        </aside>
+
+        <main class="workspace" aria-label="Map workspace">
+          <header class="map-context">
+            <p id="activePath">Philippines / Province</p>
+            <button id="widerAreaButton" type="button">Wider area</button>
+          </header>
+          <h2 id="mapTitle" class="visually-hidden">Philippines by province</h2>
+          <section id="mapStage" class="map-stage" aria-label="Map preview">
+            <div class="map-toolbar" role="group" aria-label="Map navigation">
+              <span class="canvas-hint" aria-hidden="true">Drag to pan · Scroll to zoom</span>
+              <button id="zoomInButton" type="button" aria-label="Zoom in" title="Zoom in">+</button>
+              <button id="zoomOutButton" type="button" aria-label="Zoom out" title="Zoom out">−</button>
+              <button id="fitMapButton" type="button">Fit map</button>
+              <button id="arrangeMapButton" type="button" aria-pressed="false">Arrange map</button>
+              <button id="clearSelectionButton" type="button">Clear selection</button>
+              <p id="layoutEditStatus" class="layout-edit-status" role="status" hidden></p>
+            </div>
+            <svg id="mapSvg" role="img" aria-labelledby="mapTitle" preserveAspectRatio="xMidYMid meet"></svg>
+            <p id="mapStatus" class="map-status" role="status" aria-live="polite"></p>
+            <div id="mapTooltip" class="tooltip" role="tooltip" hidden></div>
+          </section>
+          <footer class="source-footer">
+            <span id="sourceStatus">Boundaries: 2023 · Incomplete coverage</span>
+            <button id="boundaryDetailsButton" class="text-button" type="button">Details</button>
+          </footer>
+        </main>
+      </div>
+
+      <nav class="mobile-taskbar" aria-label="Open map tools">
+        <button type="button" data-open-panel="places" aria-controls="controlsPanel">Places</button>
+        <button type="button" data-open-panel="data" aria-controls="controlsPanel">Data</button>
+        <button type="button" data-open-panel="appearance" aria-controls="controlsPanel">Appearance</button>
+        <button type="button" data-open-panel="export" aria-controls="controlsPanel">Export</button>
+      </nav>
     </div>
+    <button id="panelBackdrop" class="panel-backdrop" type="button" aria-label="Close tools and return to map" hidden></button>
+
+    <dialog id="boundaryDialog" aria-labelledby="boundaryDialogTitle">
+      <h2 id="boundaryDialogTitle">About these boundaries</h2>
+      <p>These are historical, simplified Philippine boundaries based on a 2023 snapshot. Some source polygons are missing, and place matches may need review. They do not represent the current official administrative hierarchy.</p>
+      <details class="more-options"><summary>Source and coverage details</summary><p id="densityNote" class="note technical-note"></p></details>
+      <button id="retryBoundariesButton" type="button">Retry boundary loading</button>
+      <form method="dialog" class="dialog-actions"><button id="closeBoundaryDialogButton" class="primary-button" type="submit">Done</button></form>
+    </dialog>
+
+    <dialog id="replaceDataDialog" aria-labelledby="replaceDialogTitle" aria-describedby="replaceDialogText">
+      <h2 id="replaceDialogTitle">Replace the current data?</h2>
+      <p id="replaceDialogText">This replaces your imported rows and manual place edits. Save your project first if you want to keep them.</p>
+      <div class="dialog-actions">
+        <button id="cancelReplaceButton" type="button">Cancel</button>
+        <button id="saveBeforeReplaceButton" type="button">Save and replace</button>
+        <button id="confirmReplaceButton" class="danger-button" type="button">Replace data</button>
+      </div>
+    </dialog>
   </body>
 </html>

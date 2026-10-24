@@ -2,13 +2,13 @@
 
 Place production source files here before running the data pipeline.
 
-Recommended first run:
+Build the real countrywide boundary package:
 
 ```powershell
-npm run data:build
+npm run boundaries:barangays
 ```
 
-That command uses the small fixtures in `tools/fixtures`. For production data, run the pipeline directly with your source paths:
+`npm run data:build` separately exercises small fixtures under `tools/fixtures` and does not replace the real boundary package. For a custom source, run the pipeline directly with your source paths:
 
 ```powershell
 node tools/data-pipeline.mjs --psgc data/raw/psgc_q2_2024.csv --boundaries data/raw/phl_admin_boundaries.geojson --out data/generated --report data/psgc_reconciliation_report.md --metadata data/source_metadata.json
@@ -34,7 +34,7 @@ Shapefiles should be converted to GeoJSON or another intermediate format before 
 
 ## Open PSGC-Coded Boundaries
 
-The app can also fetch the MIT-licensed `bendlikeabamboo/barangay-boundaries-repository` release data:
+The app fetches the attributed PSA/NAMRIA geometry distributed by `bendlikeabamboo/barangay-boundaries-repository`. Its MIT license covers repository code, not a blanket license for the underlying boundary data:
 
 ```powershell
 npm run boundaries:build
@@ -47,3 +47,5 @@ npm run boundaries:barangays
 ```
 
 Downloaded source GeoJSON files stay under `data/raw/boundaries`, which is intentionally ignored by git.
+
+For cleaner barangay borders, run `npm run boundaries:detail` after the base barangay build. It downloads the original 2023 NAMRIA/OCHA shapefile from the pinned `altcoder/philippines-psgc-shapefiles` community mirror at commit `a44a73091f19e4950dbdc0d7cb77a5e17b101a0a`, verifies component sizes/SHA-256, and stores originals under the ignored `boundaries/detail` directory. Generated city detail is gzip compressed and indexed separately from the lightweight country overview. Existing identifiers, attribution, source gaps and historical dates remain explicit.

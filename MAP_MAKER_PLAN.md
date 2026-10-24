@@ -1,10 +1,12 @@
 # Demographic Map Maker Plan
 
-Current planning date: 2026-05-27
+Baseline planning date: 2026-05-27. Implementation update: 2026-10-20.
+
+The current app keeps its dependency-free static implementation. Real historical boundaries at every level, nationwide/scoped barangay loading, per-place labels/statistics, manual edits, and SVG/PNG legends are now implemented. The original stack/tile proposals below are future scaling options, not required dependencies.
 
 ## Goal
 
-Build a program for creating clean, infographic-style Philippine demographic maps like the reference image, with geography support down to the barangay level. Text labels, rankings, and callout typography are out of scope for the first version, but the architecture should leave room for them later.
+Build a program for creating clean, infographic-style Philippine demographic maps like the reference image, with geography support down to the barangay level and place-name, statistic and custom labels. Rankings and callout typography remain future work.
 
 The core product is a local-first map design app where the user can:
 
@@ -15,7 +17,7 @@ The core product is a local-first map design app where the user can:
 
 ## Important Barangay-Level Reality
 
-Barangay support is feasible, but it should not mean showing every barangay in the Philippines at once with full detail. Current PSA PSGC summary data lists 42,010 barangays, while the public HDX/OCHA administrative boundary dataset reports 42,048 admin-level-4 features. That mismatch needs a reconciliation step before the app can claim reliable barangay matching.
+The implemented source package has 42,026 barangay geometry records representing 41,803 distinct PSGC codes, based on 2023 PSA/NAMRIA data. It has documented missing/fuzzy/repeated matches. A lightweight simplified overview now uses color batches, buffered viewport culling and spatial hit testing; original unsimplified barangay geometry loads for focused scopes and bounded zoomed views. Gzip city detail, indexed search and cached hierarchy lookups avoid loading or rebuilding the entire detailed country on each interaction. Do not equate polygon count with complete current administrative coverage.
 
 Practical design rule:
 
@@ -162,7 +164,6 @@ The first useful version should include:
 
 MVP non-goals:
 
-- Automatic text label placement.
 - Callout leader lines.
 - Ranking badges.
 - Built-in demographic datasets beyond sample data.
