@@ -2,10 +2,12 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { dirname, relative, resolve } from "node:path";
 import { duplicateCodes, sha256, summarizeFeatures, validateCollection } from "./fetch-boundaries.mjs";
+import { verifyDetailedBoundaries } from "./check-boundary-detail.mjs";
 
 const release = JSON.parse(await readFile("data/source_metadata.json", "utf8")).latest_boundary_release;
 assert(release?.release_tag && release?.snapshot && release?.namria_version, "missing boundary release metadata");
 assert(release.geometry_preserved && release.artifacts && release.coverage_report, "rebuild boundaries with the current fetcher");
+assert(release.barangay_index && release.detail, "Missing complete boundary package; run npm run boundaries:full");
 const outputDirectory = dirname(resolve(release.normalized_boundaries));
 const admin = JSON.parse(await readFile(repoPath(release.normalized_boundaries), "utf8"));
 validateCollection(admin, release.admin_features, "generated admin");
@@ -54,6 +56,8 @@ if (release.barangay_index) {
     }
     assert.equal(index.scopes[scope].reduce((sum, entry) => sum + entry.features, 0), barangays.length);
   }
+  const detail = await verifyDetailedBoundaries({ index, metadata: release, out: outputDirectory });
+  console.log(`Verified ${detail.features} original detailed polygons in ${detail.city_scopes} gzip chunks (${detail.compressed_bytes} bytes), including source component hashes and exact geometry.`);
 }
 const allFeatures = [...admin.features, ...barangays];
 const normalizedBySource = new Map(allFeatures.map((feature) => [identity(feature), feature]));

@@ -11,8 +11,9 @@ function buildScale(features, valueByCode) {
   const values = [...new Set(features.map((feature) => feature.code))].map((code) => valueByCode.get(code)).filter(Number.isFinite).sort((a, b) => a - b);
   const palette = PALETTES[state.palette] || PALETTES.bay;
   const customThresholds = parseThresholds(state.customThresholds);
+  const singleValue = values.length && values[0] === values[values.length - 1] && !(state.classification === "custom" && customThresholds.length);
   const custom = Array.isArray(state.customColors) ? state.customColors.filter((color) => typeof color === "string" && /^#[0-9a-f]{6}$/i.test(color)).slice(0, 32) : [];
-  const useCustom = custom.length >= (state.classification === "highlight" ? 1 : 2) && !(state.classification === "custom" && customThresholds.length >= 32);
+  const useCustom = custom.length >= (state.classification === "highlight" || singleValue ? 1 : 2) && !(state.classification === "custom" && customThresholds.length >= 32);
   const ramp = (useCustom ? custom : palette.colors).slice();
   if (state.reverseColors) ramp.reverse();
   if (state.classification === "highlight") {
@@ -28,6 +29,10 @@ function buildScale(features, valueByCode) {
 
   const min = values[0];
   const max = values[values.length - 1];
+  if (singleValue) {
+    const color = colors[colors.length - 1];
+    return { colors: [color], colorForValue: () => color };
+  }
 
   if (state.classification === "continuous") {
     return {
@@ -54,7 +59,7 @@ function buildScale(features, valueByCode) {
   if (state.classification === "custom" && customThresholds.length) {
     return {
       colors,
-      labels: ["−∞", ...customThresholds.map(formatNumber), "+∞"],
+      labels: ["−∞", ...customThresholds.map((value) => formatNumber(value)), "+∞"],
       colorForValue(value) {
         const bin = customThresholds.findIndex((threshold) => value <= threshold);
         return colors[bin === -1 ? colors.length - 1 : bin];
@@ -123,5 +128,5 @@ function parseThresholds(value) {
 }
 
 function legendLabels(min, max, thresholds) {
-  return [min, ...thresholds, max].map(formatNumber);
+  return [min, ...thresholds, max].map((value) => formatNumber(value));
 }

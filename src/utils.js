@@ -1,7 +1,12 @@
 "use strict";
 
-function formatNumber(value) {
-  return new Intl.NumberFormat("en-US", { maximumFractionDigits: 2 }).format(value);
+function formatNumber(value, precision = typeof state === "undefined" ? "auto" : state.numberPrecision ?? "auto") {
+  const digits = typeof precision === "string" && /^[0-8]$/.test(precision) ? Number(precision) : precision;
+  const options = Number.isInteger(digits) && digits >= 0 && digits <= 8
+    ? { maximumFractionDigits: digits }
+    : Number.isInteger(value) ? { maximumFractionDigits: 0 }
+      : { maximumSignificantDigits: 12, ...(value && Math.abs(value) < 0.000001 ? { notation: "scientific" } : {}) };
+  return new Intl.NumberFormat("en-US", options).format(value);
 }
 
 function clamp(value, min, max) {

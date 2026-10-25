@@ -1,10 +1,11 @@
 import assert from "node:assert/strict";
-import { mkdtemp, mkdir, readFile, readdir, rm, unlink, writeFile } from "node:fs/promises";
+import { mkdtemp, mkdir, readFile, readdir, rm, symlink, unlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { basename, join, resolve, sep } from "node:path";
 import test from "node:test";
-import { gunzipSync } from "node:zlib";
+import { gunzipSync, gzipSync } from "node:zlib";
 import { buildBoundaryDetail } from "./fetch-boundary-detail.mjs";
+import { verifyDetailedBoundaries } from "./check-boundary-detail.mjs";
 import { sha256 } from "./fetch-boundaries.mjs";
 
 const square = (x, y, size) => [[x, y], [x, y + size], [x + size, y + size], [x + size, y], [x, y]];
@@ -120,6 +121,18 @@ test("changed cached source and unsafe coarse paths fail without overwriting evi
   } finally { await cleanup(f.root); }
 });
 
+test("linked source directories and component traversal are refused before changing the index", async () => {
+  const f = await fixture();
+  try {
+    const before = await readFile(join(f.out, "barangays/index.json")), alias = join(f.root, "linked-raw");
+    await symlink(f.raw, alias, process.platform === "win32" ? "junction" : "dir");
+    await assert.rejects(buildBoundaryDetail({ ...f, raw: alias }, f.source), /linked data path/);
+    const source = structuredClone(f.source); source.components[0].filename = "../outside.shp";
+    await assert.rejects(buildBoundaryDetail(f, source), /Invalid detail source component/);
+    assert.deepEqual(await readFile(join(f.out, "barangays/index.json")), before);
+  } finally { await cleanup(f.root); }
+});
+
 test("duplicate original pcodes and Null shapes fail without silently retaining coarse geometry", async () => {
   for (const problem of ["duplicate", "null"]) {
     const f = await fixture();
@@ -161,4 +174,43 @@ test("bad downloads are checksum rejected before becoming cached source files", 
     assert(!(await readdir(f.raw)).includes("fixture.cpg"));
     assert(!(await readdir(f.raw)).some((file) => file.endsWith(".tmp")));
   } finally { globalThis.fetch = originalFetch; await cleanup(f.root); }
+});
+
+test("production detail checking requires files, exact original geometry and correct province membership", async () => {
+  const f = await fixture();
+  try {
+    const result = await buildBoundaryDetail(f, f.source), options = { index: result.index, metadata: { detail: result.detail }, out: f.out, raw: f.raw, source: f.source };
+    assert.equal((await verifyDetailedBoundaries(options)).features, 3);
+    const descriptor = result.index.scopes.city[0].detail, path = join(f.out, descriptor.path), original = await readFile(path);
+    await writeFile(path, Buffer.from("corrupt"));
+    await assert.rejects(verifyDetailedBoundaries(options), /detail bytes/);
+    await writeFile(path, original); await unlink(path);
+    await assert.rejects(verifyDetailedBoundaries(options), /ENOENT/);
+    await writeFile(path, original);
+    const plain = gunzipSync(original), changed = JSON.parse(plain);
+    changed.features[0].geometry.coordinates[0][1][0] += 0.001;
+    const alteredPlain = Buffer.from(JSON.stringify(changed) + "\n"), altered = gzipSync(alteredPlain), savedDescriptor = { ...descriptor };
+    Object.assign(descriptor, { bytes: altered.length, sha256: sha256(altered) });
+    result.detail.compressed_bytes += altered.length - original.length; result.detail.uncompressed_bytes += alteredPlain.length - plain.length;
+    await writeFile(path, altered);
+    await assert.rejects(verifyDetailedBoundaries(options), /detail changed original geometry/);
+    result.detail.compressed_bytes -= altered.length - original.length; result.detail.uncompressed_bytes -= alteredPlain.length - plain.length;
+    Object.assign(descriptor, savedDescriptor); await writeFile(path, original);
+    result.index.scopes.province[0].detail.paths.pop();
+    await assert.rejects(verifyDetailedBoundaries(options), /province detail has wrong city membership/);
+    await assert.rejects(verifyDetailedBoundaries({ ...options, index: { ...result.index, detail_source: null } }), /Missing detailed/);
+  } finally { await cleanup(f.root); }
+});
+
+test("read-only metadata prevents publishing an inconsistent detail index", async (t) => {
+  if (process.platform !== "win32") return t.skip("Windows read-only files reject replacement; injected publication failures are covered on every platform");
+  const f = await fixture();
+  try {
+    const { chmod } = await import("node:fs/promises");
+    const before = await readFile(join(f.out, "barangays/index.json"));
+    await chmod(f.metadata, 0o444);
+    try { await assert.rejects(buildBoundaryDetail(f, f.source), /EPERM|EACCES/); }
+    finally { await chmod(f.metadata, 0o666); }
+    assert.deepEqual(await readFile(join(f.out, "barangays/index.json")), before);
+  } finally { await cleanup(f.root); }
 });

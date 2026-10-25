@@ -154,14 +154,18 @@ function createSvgElement(tag, attrs) {
   return element;
 }
 
+function statisticHeading() {
+  const name = state.statisticLabel.trim();
+  return `${!name || name.toLowerCase() === "value" ? "Statistic" : name}${state.metricUnit ? ` (${state.metricUnit})` : ""}`;
+}
+
 function placeDetailsMarkup(feature, value, join) {
   const hasPsgc = /^\d{10}$/.test(feature.code) && feature.matchStatus !== "unmatched";
   const parents = placeParents(feature);
   const manual = Object.hasOwn(state.placeOverrides[feature.code] || {}, "value");
   const row = join?.importedRowByCode?.get(feature.code);
   const rawValue = String(row?.[state.valueColumn] ?? "").trim();
-  const name = state.statisticLabel.trim();
-  const statistic = !name || name.toLowerCase() === "value" ? "Statistic" : name;
+  const statistic = statisticHeading();
   const hasValue = Number.isFinite(value);
   const source = manual ? "Manual entry" : row ? `CSV column: ${state.valueColumn}` : hasValue ? "Mapped statistic" : "No statistic has been added. Missing does not mean zero.";
   const reason = hasValue ? "" : manual

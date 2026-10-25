@@ -4,8 +4,18 @@ All notable changes to this project will be documented here.
 
 ## Unreleased
 
+### Repository
+
+- Refresh the README with an illustrative showcase, current setup/user guide, privacy/recovery behavior, data provenance and measured-next-step roadmap. Align contribution/security guides, data guides and issue/PR templates with the current editor and pinned full-build workflow.
+- Update application/repository descriptions, homepage/topics and share metadata; retain explicit historical-data limitations.
+
 ### Changed
 
+- Harden CSV/project trust boundaries, preserve small nonzero statistics, protect issue metadata, and collapse constant-value color scales. Validate complete project candidates and keep imported colors inert.
+- Fix stale boundary retries, overview downgrades and detailed-border eligibility in smaller regional maps. Cancel obsolete requests and expose loading/partial/fallback detail status. Add native two-finger pinch navigation.
+- Add local recovery with explicit Restore/Discard, bounded undo/redo, New, saved cameras, metric metadata/precision and source-version notices. Add Focus map, export page preview, border presets and complete mobile background isolation; group map text controls in Appearance.
+- Preserve edits made while local recovery is being cleared, serialize deletion after pending saves, and invalidate deleted durable state without immediately recreating an unchanged recovery copy.
+- Make boundary checks read-only and validate every detailed chunk against original geometry. Stage/rollback data output sets, validate custom polygons, support dense bounds and handle local-server errors without terminating the process.
 - Load original 2023 barangay geometry for province/city views and bounded zoomed overview areas, retaining all 42,026 curated records and original holes/islands. Add reproducible checksum-verified native SHP/SHX/DBF extraction, gzip city detail and explicit overview fallbacks. Replace national per-place SVG nodes with color batches, viewport culling and spatial hit testing; cache geography/search hierarchy lookups and tooltip content while preserving editable places and vector export.
 - Restyle the editor with monochrome surfaces, self-hosted Geist/Geist Mono/Geist Pixel fonts, numbered tool sections, soft map framing and a restrained halftone brand. Add persistent System/Light/Dark themes without changing project or export colors; preserve full-canvas navigation, readable mobile controls, keyboard focus and reduced-motion support.
 - Add customizable legend titles, group labels/colors, palette reversal, missing-data entries, card/text styling, opacity and typography. Arrange the legend/title/subtitle/source with dragging, keyboard nudges, percentage controls and presets; persist bounded relative positions and export without editing handles. Validate imported settings and restore defaults for older projects. Suppress rectangular SVG focus/native-drag boxes during pointer gestures while retaining boundary-shaped keyboard focus.

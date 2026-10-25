@@ -81,6 +81,9 @@ code { font-family: var(--mono); }
 .project-title input:hover { border-color: var(--line) !important; background: var(--paper) !important; }
 .project-title input:focus { border-color: var(--line) !important; background: var(--panel) !important; }
 .project-actions { display: flex; gap: 8px; }
+.project-save-status { display: block; color: var(--muted); font-size: 11px; padding-left: 11px; line-height: 1.35; }
+.project-edit-actions { display: flex; gap: 6px; padding: 0 16px 12px; }
+.project-edit-actions button { flex: 1; }
 .theme-control select { width: 92px; background: transparent; font: 11px var(--mono); }
 .primary-button { background: var(--ink); border-color: var(--ink); color: var(--inverse); }
 .primary-button:hover:not(:disabled) { background: var(--muted); border-color: var(--muted); color: var(--inverse); }
@@ -138,8 +141,17 @@ code { font-family: var(--mono); }
 #activePath { min-width: 0; font-size: 14px; font-weight: 550; }
 #widerAreaButton { flex: 0 0 auto; }
 .map-stage { position: relative; display: grid; grid-template-rows: auto minmax(0, 1fr) auto; min-width: 0; min-height: 0; overflow: hidden; background: #ffffff; border: 1px solid var(--line); border-radius: 16px; box-shadow: var(--shadow); }
+.map-canvas { grid-row: 2; grid-column: 1; display: grid; place-items: center; min-width: 0; min-height: 0; overflow: hidden; background: var(--soft); }
+.map-canvas[data-page-preview="true"] { padding: 12px; }
+.map-canvas[data-page-preview="true"] #mapSvg { box-shadow: 0 2px 12px rgb(0 0 0 / 15%); }
+.app-shell.is-map-focused { grid-template-rows: minmax(0, 1fr); }
+.is-map-focused .appbar, .is-map-focused .map-context, .is-map-focused .source-footer, .is-map-focused .mobile-taskbar { display: none; }
+.is-map-focused .editor-layout { grid-template-columns: minmax(0, 1fr); }
+.is-map-focused .controls-panel:not([data-open="true"]) { display: none; }
+.is-map-focused .workspace { padding: 8px; }
+.is-map-focused .map-stage { grid-row: 1 / -1; }
 /* Keep the SVG on its own paint layer while the editor theme crossfades. */
-#mapSvg { display: block; grid-row: 2; grid-column: 1; width: 100%; height: 100%; min-height: 0; color-scheme: light; transform: translateZ(0); touch-action: none; user-select: none; cursor: grab; }
+#mapSvg { display: block; grid-row: 1; grid-column: 1; width: 100%; height: 100%; min-height: 0; color-scheme: light; transform: translateZ(0); touch-action: none; user-select: none; cursor: grab; }
 #mapSvg.is-panning { cursor: grabbing; }
 #mapSvg.is-panning .map-feature { cursor: grabbing; }
 #mapSvg, #mapSvg * { -webkit-user-drag: none; -webkit-user-select: none; -webkit-touch-callout: none; }
@@ -242,6 +254,7 @@ dialog .more-options { margin: 16px 0; }
   .theme-control select { width: 84px; }
   .project-title { grid-row: 2; grid-column: 1; min-width: 0; padding-left: 0; border-left: 0; }
   .project-title input { padding-inline: 0; font-size: 12px; }
+  .project-save-status { padding-left: 0; font-size: 10px; }
   .project-actions { grid-row: 2; grid-column: 2; }
   .project-actions { gap: 4px; }
   .project-actions button { padding-inline: 8px; font-size: 12px; }

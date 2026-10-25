@@ -7,46 +7,65 @@ let generatedScopes = [];
 let generatedBarangayPaths = null;
 const generatedBarangayDetails = new Map();
 const generatedBarangayDetailStatus = new Map();
+const generatedBarangayDetailProgress = new Map();
 const generatedBarangayFeaturesByScope = new Map();
 const loadingBarangayScopes = new Set();
 const failedBarangayScopes = new Set();
 let boundaryLoadVersion = 0;
+let boundaryLoadController = null;
+const barangayScopeControllers = new Map();
 
 async function loadGeneratedBoundaryFeatures() {
-  boundaryLoadVersion += 1;
+  const version = ++boundaryLoadVersion;
+  boundaryLoadController?.abort();
+  for (const controller of barangayScopeControllers.values()) controller.abort();
+  barangayScopeControllers.clear();
+  const controller = new AbortController();
+  boundaryLoadController = controller;
+  const { signal } = controller;
+  generatedBarangayPaths = null;
   generatedBarangayFeaturesByScope.clear();
   generatedBarangayDetails.clear();
   generatedBarangayDetailStatus.clear();
+  generatedBarangayDetailProgress.clear();
   clearViewportBoundaryDetail();
   failedBarangayScopes.clear();
   loadingBarangayScopes.clear();
   state.generatedBoundaryStatus = "loading";
   state.generatedBoundaryMessage = "Loading Philippine boundaries…";
   try {
-    const response = await fetch(GENERATED_BOUNDARY_URL);
+    const response = await fetch(GENERATED_BOUNDARY_URL, { signal });
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
-    generatedAdminFeatures = geoJsonToAdminFeatures(await response.json());
+    const collection = await response.json();
+    if (version !== boundaryLoadVersion) return;
+    generatedAdminFeatures = geoJsonToAdminFeatures(collection);
     if (!generatedAdminFeatures.length) throw new Error("No polygon geometry found");
     generatedScopes = buildBoundaryScopes(generatedAdminFeatures);
-    await loadGeneratedBoundaryMetadata();
-    generatedBarangayPaths = new Map();
+    await loadGeneratedBoundaryMetadata(version, signal);
+    if (version !== boundaryLoadVersion) return;
+    const paths = new Map(), details = new Map();
     try {
-      const indexResponse = await fetch("data/generated/barangays/index.json");
+      const indexResponse = await fetch("data/generated/barangays/index.json", { signal });
       if (indexResponse.ok) {
         const index = await indexResponse.json();
+        if (version !== boundaryLoadVersion) return;
         const entries = [["country:PH", index.national]];
         for (const type of ["region", "province", "city"]) {
           for (const descriptor of index.scopes?.[type] || []) entries.push([`${type}:${descriptor.code}`, descriptor]);
         }
         for (const [key, descriptor] of entries) {
-          if (descriptor && /^barangays\/(?:national\.geojson|(?:region|province|city)\/[A-Za-z0-9_-]+\.geojson)$/.test(descriptor.path)) generatedBarangayPaths.set(key, descriptor.path);
-          if (descriptor?.detail) generatedBarangayDetails.set(key, descriptor.detail);
+          if (descriptor && /^barangays\/(?:national\.geojson|(?:region|province|city)\/[A-Za-z0-9_-]+\.geojson)$/.test(descriptor.path)) paths.set(key, descriptor.path);
+          if (descriptor?.detail) details.set(key, descriptor.detail);
         }
       }
     } catch { /* Admin maps remain usable without the optional full barangay package. */ }
+    if (version !== boundaryLoadVersion) return;
+    generatedBarangayPaths = paths;
+    for (const [key, detail] of details) generatedBarangayDetails.set(key, detail);
     state.generatedBoundaryStatus = "ready";
     state.generatedBoundaryMessage = `${generatedAdminFeatures.length} boundary records loaded.`;
   } catch (error) {
+    if (version !== boundaryLoadVersion || signal.aborted) return;
     generatedAdminFeatures = [];
     state.generatedBoundaryStatus = "error";
     state.generatedBoundaryMessage = `Real boundaries unavailable (${error.message}). Run npm run boundaries:barangays, then reload.`;
@@ -85,7 +104,7 @@ function getBoundarySourceLabel() {
 function barangayScopeKey(scope = getScope()) { return scope.type === "country" ? "country:PH" : `${scope.type}:${scope.code}`; }
 
 function maybeLoadGeneratedBarangaysForScope() {
-  if (state.boundarySource !== "generated" || state.level !== "barangay") return;
+  if (state.boundarySource !== "generated" || state.level !== "barangay" || state.generatedBoundaryStatus !== "ready") return;
   const scope = getScope(), key = barangayScopeKey(scope);
   if (generatedBarangayFeaturesByScope.has(key)) {
     const features = generatedBarangayFeaturesByScope.get(key);
@@ -102,13 +121,26 @@ function maybeLoadGeneratedBarangaysForScope() {
   }
   loadingBarangayScopes.add(key);
   const version = boundaryLoadVersion;
+  const controller = new AbortController(), { signal } = controller;
+  barangayScopeControllers.set(key, controller);
   state.generatedBarangayMessage = `Loading ${scope.name} barangays…`;
-  const overview = async () => { const response = await fetch(`data/generated/${path}`); if (!response.ok) throw new Error(`HTTP ${response.status}`); return response.json(); };
+  const overview = async () => { const response = await fetch(`data/generated/${path}`, { signal }); if (!response.ok) throw new Error(`HTTP ${response.status}`); return response.json(); };
   const detail = generatedBarangayDetails.get(key);
-  generatedBarangayDetailStatus.set(key, detail ? "original" : "overview");
-  (detail ? loadBoundaryDetail(detail, scope).catch(() => { if (version === boundaryLoadVersion) generatedBarangayDetailStatus.set(key, "fallback"); return overview(); }) : overview())
+  generatedBarangayDetailStatus.set(key, detail ? "loading" : "overview");
+  (detail ? loadBoundaryDetail(detail, scope, { signal, onProgress(completed, total) {
+    if (version !== boundaryLoadVersion || signal.aborted || generatedBarangayDetailStatus.get(key) !== "loading") return;
+    generatedBarangayDetailProgress.set(key, { completed, total });
+    if (typeof updateBoundaryDetailStatus === "function") updateBoundaryDetailStatus();
+  } }).then((collection) => {
+    if (version === boundaryLoadVersion && !signal.aborted) generatedBarangayDetailStatus.set(key, "original");
+    return collection;
+  }).catch((error) => {
+    if (signal.aborted || version !== boundaryLoadVersion) throw error;
+    generatedBarangayDetailStatus.set(key, "fallback");
+    return overview();
+  }) : overview())
     .then((collection) => {
-      if (version !== boundaryLoadVersion) return;
+      if (version !== boundaryLoadVersion || signal.aborted) return;
       const features = geoJsonToAdminFeatures(collection);
       generatedBarangayFeaturesByScope.set(key, features);
       // ponytail: retain three chunks; switch to tiles if larger boundary sources outgrow SVG.
@@ -120,24 +152,25 @@ function maybeLoadGeneratedBarangaysForScope() {
       if (key === barangayScopeKey()) state.generatedBarangayMessage = `${new Set(features.map((feature) => feature.code)).size.toLocaleString()} distinct mapped codes (${features.length.toLocaleString()} geometry records).`;
     })
     .catch((error) => {
-      if (version !== boundaryLoadVersion) return;
+      if (version !== boundaryLoadVersion || signal.aborted) return;
       failedBarangayScopes.add(key);
       if (key === barangayScopeKey()) state.generatedBarangayMessage = `Barangays unavailable for ${scope.name}: ${error.message}. Rebuild boundaries or retry.`;
     })
-    .finally(() => { if (version === boundaryLoadVersion) { loadingBarangayScopes.delete(key); render(); } });
+    .finally(() => { if (version === boundaryLoadVersion) { loadingBarangayScopes.delete(key); barangayScopeControllers.delete(key); generatedBarangayDetailProgress.delete(key); render(); } });
 }
 
 function getLoadedGeneratedBarangays() { return state.level === "barangay" ? applyViewportBoundaryDetail(generatedBarangayFeaturesByScope.get(barangayScopeKey()) || []) : []; }
 
-async function loadGeneratedBoundaryMetadata() {
+async function loadGeneratedBoundaryMetadata(version = boundaryLoadVersion, signal) {
   try {
-    const response = await fetch(GENERATED_METADATA_URL);
+    const response = await fetch(GENERATED_METADATA_URL, { signal });
     if (!response.ok) return;
     const metadata = await response.json(), release = metadata.latest_boundary_release || {};
+    if (version !== boundaryLoadVersion || signal?.aborted) return;
     state.boundaryMetadata = { releaseTag: release.release_tag || "", snapshot: release.snapshot || "",
       namriaVersion: release.namria_version || "", adminFeatures: release.admin_features || "",
       barangayFeatures: release.barangay_features || "", detailSource: release.detail?.provenance_url || "", detailVersion: release.detail?.source_version || "", caveat: release.caveat || metadata.caveat || "" };
-  } catch { state.boundaryMetadata = {}; }
+  } catch { if (version === boundaryLoadVersion && !signal?.aborted) state.boundaryMetadata = {}; }
 }
 
 function geoJsonToAdminFeatures(collection) {

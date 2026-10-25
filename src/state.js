@@ -41,6 +41,7 @@ const state = {
   labelSize: 10,
   showMapLegend: true,
   statisticLabel: "Value",
+  metricUnit: "", metricPeriod: "", metricSource: "", numberPrecision: "auto", camera: null,
   placeOverrides: {},
   selectedCode: null,
   projectName: "Philippine demographic map"

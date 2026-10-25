@@ -20,7 +20,7 @@ function descriptor(code, features) {
 const cityA = descriptor("C1", [island, second]), cityB = descriptor("C2", [third]);
 let fetches = 0, renders = 0;
 const context = vm.createContext({
-  console, Blob, Response, DecompressionStream, Uint8Array, crypto: webcrypto,
+  console, Blob, Response, DecompressionStream, AbortController, Uint8Array, crypto: webcrypto,
   state: { boundarySource: "generated", level: "barangay" }, scope: { type: "country", code: "PH" },
   generatedBarangayDetails: new Map([["city:C1", cityA], ["city:C2", cityB]]), boundaryLoadVersion: 0,
   mapViewBox: [0, 0, 100, 100], mapFittedViewBox: [0, 0, 100, 100], visibleFeatures: [{ cityCode: "C1" }],
@@ -37,8 +37,12 @@ const turn = async () => { await new Promise(setImmediate); await new Promise(se
 const city = await context.loadBoundaryDetail(cityA, { type: "city", code: "C1" });
 assert.equal(city.features.length, 2);
 assert.deepEqual(plain(city.features[0].geometry), island.geometry, "native gzip decoding must retain exact islands, rings, holes and coordinates");
-const province = await context.loadBoundaryDetail({ paths: [cityA, cityB], features: 2 }, { type: "province", code: "P1" });
+const progress = [];
+const province = await context.loadBoundaryDetail({ paths: [cityA, cityB], features: 2 }, { type: "province", code: "P1" }, {
+  onProgress(completed, total) { progress.push([completed, total]); }
+});
 assert.deepEqual(plain(province.features.map((item) => item.properties.source_code)), ["source-a", "source-c"], "province detail must filter and preserve ordered source records from multiple city archives");
+assert.deepEqual(progress, [[0, 2], [1, 2], [2, 2]], "detail progress must count validated city archives, not promise completion before decoding");
 await assert.rejects(context.loadBoundaryDetail({ ...cityA, path: "../private.geojson.gz" }, { type: "city", code: "C1" }), /Invalid detailed boundary index/);
 await assert.rejects(context.loadBoundaryDetail({ ...cityA, bytes: cityA.bytes + 1 }, { type: "city", code: "C1" }), /size mismatch/);
 await assert.rejects(context.loadBoundaryDetail({ ...cityA, sha256: "f".repeat(64) }, { type: "city", code: "C1" }), /checksum mismatch/);
@@ -67,7 +71,7 @@ context.clearViewportBoundaryDetail();
 const nativeLoad = context.loadBoundaryDetail;
 let pendingLoads = [];
 context.loadBoundaryDetail = (...args) => { const task = nativeLoad(...args); pendingLoads.push(task); return task; };
-const finishLoads = async () => { const current = pendingLoads; pendingLoads = []; await Promise.all(current); await turn(); };
+const finishLoads = async () => { const current = pendingLoads; pendingLoads = []; await Promise.allSettled(current); await turn(); };
 fetches = 0; renders = 0;
 context.maybeLoadViewportBoundaryDetail(); await turn();
 assert.equal(fetches, 0, "the country overview must not fetch original detailed cities");
@@ -118,23 +122,30 @@ assert.equal(vm.runInContext("viewportDetailCities.size", context), 24, "complet
 assert.equal(vm.runInContext('viewportDetailCities.has("C1")', context), true, "cache eviction must preserve a currently active detailed city");
 
 context.clearViewportBoundaryDetail();
-const requests = [], releases = new Map();
-context.fetch = (url) => { requests.push(url); return new Promise((resolve) => releases.set(url, resolve)); };
+const requests = [], releases = new Map(), signals = new Map();
+context.fetch = (url, { signal } = {}) => {
+  requests.push(url); signals.set(url, signal);
+  return new Promise((resolve, reject) => {
+    releases.set(url, resolve);
+    signal?.addEventListener("abort", () => reject(signal.reason), { once: true });
+  });
+};
 renders = 0;
 context.visibleFeatures = [{ cityCode: "C1" }];
 context.maybeLoadViewportBoundaryDetail();
 context.visibleFeatures = [{ cityCode: "C2" }];
 context.maybeLoadViewportBoundaryDetail();
-assert.equal(requests.length, 1, "a camera change during a download must wait for the current detail batch");
+assert.equal(requests.length, 2, "a camera change must request the new visible city without waiting for an obsolete download");
 const cityAUrl = "data/generated/" + cityA.path, cityBUrl = "data/generated/" + cityB.path;
+assert(signals.get(cityAUrl).aborted, "an obsolete camera download must be aborted natively");
 releases.get(cityAUrl)(new Response(payloads.get(cityAUrl)));
-await finishLoads();
-assert.deepEqual(requests, [cityAUrl, cityBUrl], "finishing the first city's download must automatically request the city now under the camera");
 releases.get(cityBUrl)(new Response(payloads.get(cityBUrl)));
 await finishLoads();
+assert.deepEqual(requests, [cityAUrl, cityBUrl], "each camera must request only its own visible city");
 assert.equal(vm.runInContext('viewportDetailActive.size === 1 && viewportDetailActive.has("C2") && viewportDetailCities.has("C2")', context), true,
   "the newly visible city must receive original geometry without another pan or zoom event");
-assert.equal(renders, 2, "each completed visible-detail batch must redraw once");
+assert.equal(renders, 1, "an aborted obsolete detail batch must not redraw the current map");
+assert.deepEqual(plain(context.viewportBoundaryDetailStatus()), { total: 1, loaded: 1, failed: 0, loading: false });
 
 context.clearViewportBoundaryDetail();
 let releaseFetch;
@@ -148,4 +159,67 @@ releaseFetch(new Response(payloads.get("data/generated/" + cityA.path)));
 await finishLoads();
 assert.equal(vm.runInContext("viewportDetailCities.size", context), 0, "a stale boundary generation must not publish decoded city geometry");
 assert.equal(renders, 0, "a stale boundary generation must not redraw the current project");
-console.log("Boundary detail passed: native gzip, SHA-256/size/path/count validation, exact holes/islands, source-record merging, resource budgets, cache reuse, camera changes during downloads, zoom-out and stale-load rejection");
+
+context.fetch = async (url) => url === cityAUrl ? new Response(payloads.get(url)) : new Response(null, { status: 503 });
+context.visibleFeatures = [{ cityCode: "C1" }, { cityCode: "C2" }];
+context.maybeLoadViewportBoundaryDetail();
+assert.deepEqual(plain(context.viewportBoundaryDetailStatus()), { total: 2, loaded: 0, failed: 0, loading: true });
+await finishLoads();
+assert.deepEqual(plain(context.viewportBoundaryDetailStatus()), { total: 2, loaded: 1, failed: 1, loading: false },
+  "partial viewport detail must report the failed cities while retaining successful detail");
+
+const adminRequests = [], scopeTasks = [], requestedScopes = [];
+const loaderScope = { id: "CITY-C1", type: "city", code: "C1", name: "Test city" };
+const loaderContext = vm.createContext({ console, Blob, Response, DecompressionStream, AbortController, Uint8Array, crypto: webcrypto,
+  state: { boundarySource: "generated", level: "barangay", scopeId: loaderScope.id }, render() {}, getScope: () => loaderScope,
+  fetch(url, { signal } = {}) {
+    if (url.endsWith("admin_boundaries.normalized.geojson")) return new Promise((resolve) => adminRequests.push({ resolve, signal }));
+    if (url.endsWith("source_metadata.json")) return Promise.resolve(new Response(null, { status: 404 }));
+    if (url.endsWith("index.json")) return Promise.resolve({ ok: true, json: async () => ({ scopes: { city: [
+      { code: "C1", path: "barangays/city/C1.geojson", detail: cityA }
+    ] } }) });
+    requestedScopes.push(url);
+    return Promise.resolve(payloads.has(url) ? new Response(payloads.get(url)) : new Response(null, { status: 404 }));
+  }
+});
+for (const file of ["boundary-detail", "boundary-loader"]) vm.runInContext(await readFile(`src/${file}.js`, "utf8"), loaderContext);
+loaderContext.geoJsonToAdminFeatures = (collection) => collection.features.map((item) => ({ code: item.code || item.properties.source_code }));
+loaderContext.buildBoundaryScopes = () => [loaderScope];
+const loaderNative = loaderContext.loadBoundaryDetail;
+loaderContext.loadBoundaryDetail = (...args) => { const task = loaderNative(...args); scopeTasks.push(task); return task; };
+const oldLoad = loaderContext.loadGeneratedBoundaryFeatures(), newLoad = loaderContext.loadGeneratedBoundaryFeatures();
+assert(adminRequests[0].signal.aborted, "a new top-level load must abort the old native request");
+adminRequests[1].resolve({ ok: true, json: async () => ({ features: [{ code: "NEW" }] }) });
+await newLoad;
+adminRequests[0].resolve({ ok: false, status: 503 });
+await oldLoad;
+assert.equal(loaderContext.state.generatedBoundaryStatus, "ready", "a stale failure must not replace a newer successful load");
+assert.equal(vm.runInContext("generatedAdminFeatures[0].code", loaderContext), "NEW");
+
+const reload = loaderContext.loadGeneratedBoundaryFeatures();
+loaderContext.maybeLoadGeneratedBarangaysForScope();
+assert.equal(requestedScopes.length, 0, "Retry must wait for its new detail index instead of caching overview geometry");
+adminRequests[2].resolve({ ok: true, json: async () => ({ features: [{ code: "RELOADED" }] }) });
+await reload;
+loaderContext.maybeLoadGeneratedBarangaysForScope();
+assert.equal(vm.runInContext('generatedBarangayDetailStatus.get("city:C1")', loaderContext), "loading",
+  "starting a detail request must not claim original borders before validation succeeds");
+assert.deepEqual(plain(vm.runInContext('generatedBarangayDetailProgress.get("city:C1")', loaderContext)), { completed: 0, total: 1 });
+await Promise.all(scopeTasks); await turn();
+assert.equal(vm.runInContext('generatedBarangayDetailStatus.get("city:C1")', loaderContext), "original");
+assert.deepEqual(requestedScopes, [cityAUrl], "Retry must restore detail directly without a sticky overview downgrade");
+assert.equal(vm.runInContext('generatedBarangayFeaturesByScope.get("city:C1")[0].code', loaderContext), "source-a");
+
+let scopeSignal;
+loaderContext.fetch = (url, { signal } = {}) => {
+  if (url.endsWith("admin_boundaries.normalized.geojson")) return Promise.resolve({ ok: false, status: 503 });
+  scopeSignal = signal;
+  return new Promise((resolve, reject) => signal.addEventListener("abort", () => reject(signal.reason), { once: true }));
+};
+vm.runInContext("generatedBarangayFeaturesByScope.clear()", loaderContext);
+loaderContext.maybeLoadGeneratedBarangaysForScope();
+const supersedingLoad = loaderContext.loadGeneratedBoundaryFeatures();
+assert(scopeSignal.aborted, "Retry must also abort an in-flight scope detail download");
+await supersedingLoad; await Promise.allSettled(scopeTasks); await turn();
+assert.equal(vm.runInContext("failedBarangayScopes.size", loaderContext), 0, "aborted old work must not become a current scope failure");
+console.log("Boundary detail passed: native validation, progress/partial status, cache budgets, camera cancellation, retry ordering, detailed-scope reload and stale-generation rejection");

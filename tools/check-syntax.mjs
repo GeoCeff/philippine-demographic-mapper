@@ -9,6 +9,8 @@ const files = [
   "tools/fetch-boundary-detail.mjs",
   "tools/read-shapefile.mjs",
   "tools/check-boundaries.mjs",
+  "tools/check-boundary-detail.mjs",
+  "tools/write-output-set.mjs",
   "tools/check-syntax.mjs",
   "tools/smoke-test.mjs",
   "tools/validate-samples.mjs",

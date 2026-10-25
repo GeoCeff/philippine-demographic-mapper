@@ -4,7 +4,7 @@ import { readFile } from "node:fs/promises";
 import vm from "node:vm";
 
 const context = vm.createContext({
-  assert, Blob, Image: function Image() {}, Intl, Map, Math, Number, Set, String, URL, console, setImmediate,
+  assert, Blob, AbortController, Image: function Image() {}, Intl, Map, Math, Number, Set, String, URL, console, setImmediate,
   document: { addEventListener() {}, createElementNS() { return { setAttribute() {} }; } }
 });
 
@@ -47,6 +47,7 @@ vm.runInContext(`
   generatedAdminFeatures = geoJsonToAdminFeatures(adminFixture);
   generatedScopes = buildBoundaryScopes([...generatedAdminFeatures, generatedAdminFeatures[2]]);
   state.boundarySource = "generated";
+  state.generatedBoundaryStatus = "ready";
 
   const scopes = getScopes();
   assert.deepEqual(scopes.map((scope) => scope.id), [
@@ -591,6 +592,119 @@ vm.runInContext(`
 `, context);
 
 console.log("Preview export and geography search passed: clipped padding, exact codes, and ambiguous-name refusal");
+
+await vm.runInContext(`(async () => {
+  const previous = { ...state }, previousDownload = downloadBlob, previousAlert = globalThis.alert;
+  const previousRender = render, previousConfirm = confirmDataReplacement, previousInput = el.projectInput;
+  try {
+    const quoted = parseCsv('psgc_code,name,value\\r\\n0100000000,"A, ""quoted"" place\\nsecond line",0\\r\\n');
+    assert.equal(quoted.rows[0].name, 'A, "quoted" place\\nsecond line');
+    assert.equal(quoted.rows[0].value, "0");
+    for (const malformed of [
+      'code,value,value\\nA,1,2', 'code,Value,value\\nA,1,2', 'code,\\nA,1',
+      'code,name,value\\nA,Place,1,000', 'code,name,value\\nA,Place',
+      'code,value\\nA,"unclosed', 'code,value\\nA,bad"quote', 'code,value\\nA,"1"extra'
+    ]) assert.throws(() => parseCsv(malformed), /CSV/, "ambiguous CSV structure must be rejected");
+    const unusualHeaders = parseCsv('__proto__,constructor,value\\nplain,ordinary,0');
+    assert.equal(unusualHeaders.rows[0].__proto__, "plain");
+    assert.equal(unusualHeaders.rows[0].constructor, "ordinary");
+    assert.equal({}.plain, undefined);
+
+    Object.assign(state, { boundarySource: "fixture", scopeId: "PH", level: "region" });
+    const feature = ADMIN_FEATURES.find((item) => item.level === "region");
+    parseImportedCsv('psgc_code,name,Population (2025)\\n' + feature.code + ',Example,1234');
+    assert.equal(state.valueColumn, "Population (2025)");
+    assert.equal(buildJoin().valueByCode.get(feature.code), 1234, "the PSGC identifier must never become the inferred statistic");
+    assert.equal(chooseNumericColumn([{ psgc_code: feature.code, other_id: "99" }], ["psgc_code", "other_id"]), undefined);
+    parseImportedCsv('psgc_code\\n' + feature.code);
+    assert.equal(state.valueColumn, "");
+    assert.equal(buildJoin().valueByCode.size, 0, "a code-only file contains no statistic");
+    state.placeOverrides = { [feature.code]: { value: "73", label: "Keep me" } };
+    const beforeBadCsv = JSON.stringify(state);
+    assert.throws(() => parseImportedCsv('code,value,value\\nA,1,2'), /CSV/);
+    assert.equal(JSON.stringify(state), beforeBadCsv, "parse errors must not replace imported data or place edits");
+
+    const malicious = 'red"><img src="data:," onerror="document.documentElement.dataset.auditPoc=1">';
+    for (const key of ["borderColor", "missingColor", "highlightColor", "backgroundColor", "legendTextColor", "legendBackgroundColor", "layoutTextColor"]) {
+      const loaded = validateProjectState({ scopeId: "PH", level: "region", [key]: malicious });
+      assert.equal(loaded[key], PROJECT_STATE_DEFAULTS[key], "unsafe color must use a fresh safe default: " + key);
+      assert.equal(validateProjectState({ scopeId: "PH", level: "region", [key]: "#ABCDEF" })[key], "#abcdef");
+    }
+    const unsafeHighlight = validateProjectState({ scopeId: "PH", level: "region", classification: "highlight", highlightColor: malicious });
+    Object.assign(state, unsafeHighlight);
+    assert.match(buildScale([{ code: "A" }], new Map([["A", 1]])).colors[0], /^#[0-9a-f]{6}$/);
+
+    for (const invalid of [
+      { importedRows: [null] }, { importedRows: [[]] }, { importedRows: [1] }, { importedRows: [{ value: {} }] },
+      { importedRows: [{ value: true }] }, { importedRows: [{ value: Infinity }] }, { importedRows: {} },
+      { columns: [null] }, { columns: [{}] }, { columns: [""] }, { columns: ["value", "VALUE"] },
+      { columns: [" value "] }, { importedRows: [{ value: "1" }] },
+      { columns: ["psgc_code", "value"], importedRows: [{ psgc_code: "A", value: "1" }], keyColumn: "absent" }
+    ]) assert.equal(validateProjectState({ scopeId: "PH", level: "region", ...invalid }), null, "invalid project data shapes must be rejected before replacement");
+    assert.equal(validateProjectState({ scopeId: "PH", level: "unknown" }), null);
+    assert.equal(validateProjectState({ scopeId: "invalid", level: "region" }), null);
+    const old = validateProjectState({ scopeId: "PH", level: "region" });
+    assert.deepEqual(Object.keys(old).sort(), PROJECT_STATE_KEYS.slice().sort(), "validation must return complete persisted state");
+    assert.deepEqual(old.importedRows, []); assert.deepEqual(old.columns, []);
+    assert.equal(old.projectName, PROJECT_STATE_DEFAULTS.projectName);
+    assert.equal(old.backgroundColor, PROJECT_STATE_DEFAULTS.backgroundColor);
+    const source = { scopeId: "PH", level: "region", columns: ["psgc_code", "constructor", "value"], importedRows: [{ psgc_code: feature.code, value: 0 }] };
+    const detached = validateProjectState(source);
+    assert.equal(detached.importedRows[0].value, "0");
+    assert.equal(detached.importedRows[0].constructor, "", "missing CSV fields must not resolve inherited object properties");
+    detached.importedRows[0].value = "changed"; detached.columns.push("extra");
+    assert.equal(source.importedRows[0].value, 0); assert.equal(source.columns.length, 3);
+
+    Object.assign(state, { importedRows: [{ psgc_code: feature.code, value: "17" }], columns: ["psgc_code", "value"], placeOverrides: { [feature.code]: { value: "42" } } });
+    let confirmations = 0, renders = 0, alerts = 0;
+    globalThis.alert = () => { alerts++; }; confirmDataReplacement = async () => { confirmations++; return true; };
+    render = () => { renders++; }; el.projectInput = { value: "bad.json" };
+    const beforeBadProject = JSON.stringify(state);
+    await loadProject({ target: { files: [{ text: async () => JSON.stringify({ version: 2, state: { scopeId: "PH", level: "region", importedRows: [null] } }) }] } });
+    assert.equal(JSON.stringify(state), beforeBadProject, "rejected projects must preserve the active project atomically");
+    assert.equal(confirmations, 0); assert.equal(renders, 0); assert.equal(alerts, 1); assert.equal(el.projectInput.value, "");
+    const payload = projectPayload();
+    payload.state.importedRows[0].value = "detached";
+    assert.equal(state.importedRows[0].value, "17", "recovery/save payloads must be detached snapshots");
+
+    Object.assign(state, { boundarySource: "fixture", scopeId: "PH", level: "region", placeOverrides: {} });
+    parseImportedCsv('psgc_code,name,value,_status,_row_number,_value,input__status,_Detail\\nBAD,Example,nope,Trusted,999,0,Original,Untrusted detail');
+    let report;
+    downloadBlob = (blob) => { report = blob; };
+    exportImportIssues();
+    const issueCsv = parseCsv(await report.text());
+    assert.equal(issueCsv.rows[0]._status, "Unknown code"); assert.equal(issueCsv.rows[0]._row_number, "1"); assert.equal(issueCsv.rows[0]._value, "nope");
+    assert.equal(issueCsv.rows[0].input_input__status, "Trusted", "reserved original fields must be retained with unique names");
+    assert.equal(issueCsv.rows[0].input__status, "Original"); assert.equal(issueCsv.rows[0].input__row_number, "999"); assert.equal(issueCsv.rows[0].input__value, "0");
+    assert.equal(issueCsv.rows[0].input__Detail, "Untrusted detail"); assert.notEqual(issueCsv.rows[0]._detail, "Untrusted detail");
+
+    Object.assign(state, { bins: 3, palette: "density", customColors: [], reverseColors: false, legendLabels: [], customThresholds: "" });
+    const features = ["A", "B", "C"].map((code) => ({ code })), rates = new Map([["A", 0.001], ["B", 0.002], ["C", 0.003]]);
+    assert.equal(formatNumber(0.001), "0.001"); assert.equal(formatNumber(-0.001), "-0.001"); assert.notEqual(formatNumber(1e-30), "0");
+    assert.equal(formatNumber(123456789012345), "123,456,789,012,345", "precision changes must not round whole counts");
+    assert.equal(formatNumber(1.2345, 2), "1.23");
+    state.numberPrecision = 2;
+    assert.equal(formatNumber(1.2345), "1.23", "saved display precision must apply by default");
+    assert.equal(formatNumber(1.2345, "auto"), "1.2345", "an explicit precision argument must take precedence");
+    state.numberPrecision = "auto";
+    for (const classification of ["equal", "quantile", "continuous"]) {
+      state.classification = classification;
+      const scale = buildScale(features, rates), entries = legendEntries(scale, features, { valueByCode: rates });
+      assert.equal(new Set(entries.map((entry) => entry.label)).size, entries.length, "small-rate class labels must remain distinguishable");
+      assert(entries.every((entry) => entry.label !== "0" && entry.label !== "0 – 0"));
+      const constant = new Map(features.map((feature) => [feature.code, 5]));
+      const constantScale = buildScale(features, constant);
+      assert.equal(constantScale.colors.length, 1, "constant-valued data must have one meaningful color group");
+      assert.equal(legendEntries(constantScale, features, { valueByCode: constant }).length, 1);
+    }
+    state.customColors = ["#123456"];
+    assert.equal(buildScale(features, new Map(features.map((feature) => [feature.code, 5]))).colorForValue(5), "#123456", "a sole constant group must remain color-editable");
+  } finally {
+    Object.assign(state, previous); downloadBlob = previousDownload; globalThis.alert = previousAlert;
+    render = previousRender; confirmDataReplacement = previousConfirm; el.projectInput = previousInput;
+  }
+})()`, context);
+console.log("Import trust boundaries passed: strict CSV, identifier inference, safe complete projects, atomic rejection, precision, constant groups, and issue metadata");
 
 // ponytail: local source checks are optional; the synthetic regression suite never downloads boundaries.
 if (existsSync("data/generated/barangays/national.geojson")) {

@@ -88,7 +88,7 @@ const animationFrames = new Map(), resizeObservers = [];
 let nextTimer = 1;
 let serializedTree = null;
 const document = Object.assign(node("document"), { createElementNS: (_namespace, tag) => node(tag), createDocumentFragment: () => node("#fragment") });
-const context = vm.createContext({ document, window: node("window"), DOMPoint: Point, console, Intl, Map, Set, Number, String, Math, URL, Blob,
+const context = vm.createContext({ document, window: node("window"), DOMPoint: Point, console, Intl, Map, Set, Number, String, Math, URL, Blob, AbortController,
   XMLSerializer: class { serializeToString(tree) { serializedTree = tree; return "<svg/>"; } },
   setTimeout(callback) { const id = nextTimer++; timers.set(id, callback); return id; }, clearTimeout(id) { timers.delete(id); },
   requestAnimationFrame(callback) { const id = nextTimer++; animationFrames.set(id, callback); return id; },
@@ -562,7 +562,65 @@ try {
   context.renderNavigationLayout();
 }
 
-console.log("Map navigation passed: anchored zoom, full-canvas resize, contextual tooltips, movable layout objects, gesture rollback, native drag suppression, and keyboard activation");
+setBox([0, 0, 200, 100]);
+const pinchTarget = el.mapSvg.querySelector(".map-feature"), touchCenter = { x: viewport.left + viewport.width / 2, y: viewport.top + viewport.height / 2 };
+const pinchAnchor = context.mapPointFromClient(touchCenter.x, touchCenter.y), rendersBeforePinch = fullRenders;
+state.selectedCode = null;
+emit(el.mapSvg, "pointerdown", { target: pinchTarget, pointerType: "touch", pointerId: 100, clientX: touchCenter.x - 40, clientY: touchCenter.y });
+emit(el.mapSvg, "pointerdown", { pointerType: "touch", pointerId: 101, isPrimary: false, clientX: touchCenter.x + 40, clientY: touchCenter.y });
+assert(el.mapSvg.hasPointerCapture(100) && el.mapSvg.hasPointerCapture(101), "pinching must capture both touch pointers");
+emit(el.mapSvg, "lostpointercapture", { target: pinchTarget, pointerId: 100 });
+assert(el.mapSvg.hasPointerCapture(100), "transferring native implicit capture from a feature to the SVG must not cancel the pinch");
+emit(el.mapSvg, "pointermove", { pointerType: "touch", pointerId: 100, clientX: touchCenter.x - 80, clientY: touchCenter.y });
+emit(el.mapSvg, "pointermove", { pointerType: "touch", pointerId: 101, isPrimary: false, clientX: touchCenter.x + 80, clientY: touchCenter.y });
+near(box()[2], 100, "doubling two-finger distance must halve the map width");
+near(context.mapPointFromClient(touchCenter.x, touchCenter.y).x, pinchAnchor.x, "pinch zoom must preserve its midpoint horizontal anchor");
+near(context.mapPointFromClient(touchCenter.x, touchCenter.y).y, pinchAnchor.y, "pinch zoom must preserve its midpoint vertical anchor");
+emit(el.mapSvg, "pointermove", { pointerType: "touch", pointerId: 100, clientX: touchCenter.x - 60, clientY: touchCenter.y + 10 });
+emit(el.mapSvg, "pointermove", { pointerType: "touch", pointerId: 101, isPrimary: false, clientX: touchCenter.x + 100, clientY: touchCenter.y + 10 });
+near(box()[2], 100, "moving both fingers together must pan without changing zoom");
+near(context.mapPointFromClient(touchCenter.x + 20, touchCenter.y + 10).x, pinchAnchor.x, "the geographic pinch anchor must follow a moving midpoint");
+near(context.mapPointFromClient(touchCenter.x + 20, touchCenter.y + 10).y, pinchAnchor.y, "midpoint movement must preserve vertical anchoring");
+const beforeThirdTouch = box();
+emit(el.mapSvg, "pointerdown", { pointerType: "touch", pointerId: 102, isPrimary: false });
+emit(el.mapSvg, "pointermove", { pointerType: "touch", pointerId: 102, isPrimary: false, clientX: 900, clientY: 900 });
+assert.deepEqual(box(), beforeThirdTouch, "an extra touch must not replace either active pinch pointer");
+emit(el.mapSvg, "pointerup", { pointerType: "touch", pointerId: 101, isPrimary: false });
+const beforeRemainingPan = box();
+emit(el.mapSvg, "pointermove", { pointerType: "touch", pointerId: 100, clientX: touchCenter.x - 45, clientY: touchCenter.y + 15 });
+assert.notDeepEqual(box(), beforeRemainingPan, "lifting one pinch finger must allow the remaining finger to continue panning");
+emit(el.mapSvg, "pointerup", { pointerType: "touch", pointerId: 100 });
+assert(!el.mapSvg.hasPointerCapture(100) && !el.mapSvg.hasPointerCapture(101), "finishing the pinch must release both captures");
+emit(el.mapSvg, "click", { target: pinchTarget });
+assert.equal(fullRenders, rendersBeforePinch, "pinch frames must use the viewport update path and must not accidentally select a place");
+
+for (const ending of ["pointercancel", "lostpointercapture"]) {
+  emit(el.mapSvg, "pointerdown", { pointerType: "touch", pointerId: 110, clientX: touchCenter.x - 40, clientY: touchCenter.y });
+  emit(el.mapSvg, "pointerdown", { pointerType: "touch", pointerId: 111, isPrimary: false, clientX: touchCenter.x + 40, clientY: touchCenter.y });
+  emit(el.mapSvg, ending, { pointerId: 110 });
+  const cancelledPinch = box();
+  emit(el.mapSvg, "pointermove", { pointerType: "touch", pointerId: 111, clientX: 800, clientY: 800 });
+  assert.deepEqual(box(), cancelledPinch, "a cancelled pinch must discard every old touch position");
+  assert(!el.mapSvg.hasPointerCapture(110) && !el.mapSvg.hasPointerCapture(111), "pinch cancellation must release every capture");
+  assert(!el.mapSvg.classList.contains("is-panning"));
+  emit(el.mapSvg, "click", { target: pinchTarget });
+  assert.equal(fullRenders, rendersBeforePinch, "a cancelled pinch must not select a place");
+}
+emit(el.mapSvg, "pointerdown", { target: pinchTarget, pointerType: "touch", pointerId: 112 });
+emit(el.mapSvg, "pointerup", { pointerType: "touch", pointerId: 112 });
+emit(el.mapSvg, "click", { target: pinchTarget });
+assert.equal(fullRenders, rendersBeforePinch + 1, "a new single-finger tap must still select normally after pinch cancellation");
+
+context.setLayoutEditMode(true);
+const beforeTouchArrange = box(), touchLayoutItem = item("legend");
+emit(el.mapSvg, "pointerdown", { target: touchLayoutItem, pointerType: "touch", pointerId: 120, clientX: 300, clientY: 250 });
+emit(el.mapSvg, "pointerdown", { pointerType: "touch", pointerId: 121, isPrimary: false, clientX: 500, clientY: 250 });
+emit(el.mapSvg, "pointermove", { pointerType: "touch", pointerId: 120, clientX: 320, clientY: 260 });
+assert.deepEqual(box(), beforeTouchArrange, "two fingers in Arrange mode must not zoom or pan the map");
+emit(el.mapSvg, "pointercancel", { pointerId: 120 });
+assert(!el.mapSvg.hasPointerCapture(120) && !el.mapSvg.hasPointerCapture(121));
+context.setLayoutEditMode(false);
+console.log("Map navigation passed: anchored mouse/touch zoom, pinch cancellation and single-touch continuation, resize, layout arrangement, tooltips and keyboard activation");
 
 const largeFeatures = Array.from({ length: 4200 }, (_, index) => {
   const x = index % 70 * 12, y = Math.floor(index / 70) * 12;
@@ -635,3 +693,41 @@ context.serializeMapSvg();
 assert.equal(batchCount(serializedTree), batchCount(), "zoomed export must preserve the currently previewed geometry batches");
 assert(serializedTree.querySelectorAll(".map-batch").every((path) => path.getAttribute("fill-rule") === "nonzero"), "zoomed export must retain nonzero winding for every batch");
 console.log("Large-map integration passed: bounded color batches, geometry counts, holes, indexed hover/click, selected overlays, overscan culling, stable legends, and SVG export winding");
+
+context.DecompressionStream = DecompressionStream;
+context.getScope = () => ({ type: "region", code: "1300000000" });
+Object.assign(state, { scopeId: "REG-1300000000", selectedCode: null, showMapLegend: false, showLayoutText: false });
+const regionalFeatures = largeFeatures.slice(0, 1710).map((feature) => ({ ...feature, cityCode: "C1" }));
+context.renderMap(regionalFeatures, { valueByCode: new Map(), importedRowByCode: new Map() });
+assert.equal(vm.runInContext("mapSpatialIndex", context), null, "small regions must keep the existing per-feature rendering path");
+vm.runInContext('generatedBarangayDetails.set("city:C1", { features: 1710, bytes: 100 })', context);
+let regionalDetailLoads = 0;
+context.loadBoundaryDetail = async () => { regionalDetailLoads++; return { type: "FeatureCollection", features: [] }; };
+context.zoomMap(0.1);
+context.refreshNavigationLabels();
+assert.equal(regionalDetailLoads, 1, "zoomed regions below the batching threshold must still request indexed original borders");
+assert.equal(context.viewportBoundaryDetailStatus().loading, true);
+await new Promise(setImmediate); await new Promise(setImmediate);
+assert.equal(context.viewportBoundaryDetailStatus().loaded, 1);
+assert.equal(context.viewportBoundaryDetailStatus().loading, false);
+console.log("Small-region integration passed: original border eligibility is independent of the SVG batching threshold");
+
+context.clearViewportBoundaryDetail();
+Object.assign(state, { generatedBoundaryStatus: "loading", boundaryMetadata: {}, camera: {
+  scopeId: state.scopeId, level: state.level, boundarySource: "generated", snapshot: "2023", viewBox: [120, 120, 10.8, 6]
+} });
+context.renderMap(regionalFeatures, { valueByCode: new Map(), importedRowByCode: new Map() });
+assert(state.camera, "a saved camera must wait for generated metadata instead of being discarded during loading");
+Object.assign(state, { generatedBoundaryStatus: "ready", boundaryMetadata: { snapshot: "2023" } });
+const loadsBeforeRestore = regionalDetailLoads;
+context.renderMap(regionalFeatures, { valueByCode: new Map(), importedRowByCode: new Map() });
+assert.equal(state.camera, null);
+near(box()[2], 10.8, "camera restoration must preserve the saved geographic width at matching aspect");
+await new Promise(setImmediate); await new Promise(setImmediate);
+assert.equal(regionalDetailLoads, loadsBeforeRestore + 1, "restoring a close camera must automatically request detail without another gesture");
+state.boundarySource = "fixture";
+state.camera = { scopeId: state.scopeId, level: state.level, boundarySource: "fixture", snapshot: "different source", viewBox: [100, 200, 18, 10] };
+context.renderMap(regionalFeatures, { valueByCode: new Map(), importedRowByCode: new Map() });
+assert.equal(state.camera, null, "fixture cameras must not depend on generated metadata");
+near(box()[0], 100, "fixture camera must restore independently");
+console.log("Camera restoration passed: metadata readiness, deferred detailed borders, and independent fixture cameras");

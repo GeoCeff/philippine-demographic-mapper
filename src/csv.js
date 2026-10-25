@@ -5,6 +5,7 @@ function parseCsv(text) {
   let current = "";
   let row = [];
   let inQuotes = false;
+  let closedQuote = false;
 
   for (let index = 0; index < text.length; index += 1) {
     const char = text[index];
@@ -13,24 +14,38 @@ function parseCsv(text) {
       current += "\"";
       index += 1;
     } else if (char === "\"") {
-      inQuotes = !inQuotes;
+      if (inQuotes) { inQuotes = false; closedQuote = true; }
+      else {
+        if (current.trim() || closedQuote) throw new Error("CSV contains a quote inside an unquoted field.");
+        current = "";
+        inQuotes = true;
+      }
     } else if (char === "," && !inQuotes) {
       row.push(current);
       current = "";
+      closedQuote = false;
     } else if ((char === "\n" || char === "\r") && !inQuotes) {
       if (char === "\r" && next === "\n") index += 1;
       row.push(current);
       if (row.some((cell) => cell.trim() !== "")) rows.push(row);
       row = [];
       current = "";
+      closedQuote = false;
     } else {
+      if (closedQuote && char.trim()) throw new Error("CSV contains text after a closing quote.");
       current += char;
     }
   }
+  if (inQuotes) throw new Error("CSV contains an unclosed quoted field.");
   row.push(current);
   if (row.some((cell) => cell.trim() !== "")) rows.push(row);
 
   const columns = (rows.shift() || []).map((cell) => cell.trim());
+  if (columns.some((column) => !column)) throw new Error("CSV column names must not be blank.");
+  if (new Set(columns.map((column) => column.toLowerCase())).size !== columns.length) throw new Error("CSV column names must be unique.");
+  rows.forEach((cells, index) => {
+    if (cells.length !== columns.length) throw new Error(`CSV data row ${index + 1} has ${cells.length} fields; expected ${columns.length}. Quote values containing commas.`);
+  });
   return {
     columns,
     rows: rows.map((cells) =>
@@ -47,10 +62,11 @@ function chooseColumn(columns, candidates, fallback) {
   return fallback;
 }
 
-function chooseNumericColumn(rows, columns) {
-  const preferred = chooseColumn(columns, ["value", "count", "rate", "population", "households"], "");
+function chooseNumericColumn(rows, columns, keyColumn = chooseColumn(columns, ["psgc_code", "psgc", "code"], columns[0])) {
+  const candidates = columns.filter((column) => column !== keyColumn && !/^(?:psgc(?:_code)?|code|id|.*_(?:code|id))$/i.test(column));
+  const preferred = chooseColumn(candidates, ["value", "count", "rate", "population", "households"], "");
   if (preferred) return preferred;
-  return columns.find((column) => rows.some((row) => Number.isFinite(parseValue(row[column]))));
+  return candidates.find((column) => rows.some((row) => Number.isFinite(parseValue(row[column]))));
 }
 
 function normalizeCode(value) {

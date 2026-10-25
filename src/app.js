@@ -26,6 +26,7 @@ async function init() {
   render();
   await boundaries;
   render();
+  if (typeof initializeProjectSession === "function") await initializeProjectSession();
 }
 
 function cacheElements() {
@@ -134,13 +135,14 @@ function bindEvents() {
   el.csvInput.addEventListener("change", async (event) => {
     const file = event.target.files[0];
     if (!file) return;
+    if (file.size > 25_000_000) { el.dataKindNotice.textContent = "This CSV is larger than 25 MB. Split it into a smaller import."; el.csvInput.value = ""; return; }
     try {
       const text = await file.text();
       if (!parseCsv(text).rows.length) { el.dataKindNotice.textContent = "This CSV has no data rows. Choose a file with place codes and statistics."; return; }
       if (!await confirmDataReplacement()) return;
       parseImportedCsv(text, { projectName: file.name.replace(/\.csv$/i, ""), sourceNote: "Statistics from your imported CSV. Boundaries: PSA / NAMRIA, 2023 snapshot; incomplete coverage." });
       render();
-    } catch { el.dataKindNotice.textContent = "Could not read this CSV. Choose a readable CSV file and try again."; }
+    } catch (error) { el.dataKindNotice.textContent = error.message || "Could not read this CSV. Choose a readable CSV file and try again."; }
     finally { el.csvInput.value = ""; }
   });
 
@@ -300,10 +302,12 @@ function bindEvents() {
 
   el.exportWidthInput.addEventListener("input", () => {
     state.exportWidth = clamp(Number(el.exportWidthInput.value), 640, 5000);
+    if (typeof updatePagePreview === "function") updatePagePreview();
   });
 
   el.exportHeightInput.addEventListener("input", () => {
     state.exportHeight = clamp(Number(el.exportHeightInput.value), 640, 5000);
+    if (typeof updatePagePreview === "function") updatePagePreview();
   });
 
   el.exportIssuesButton.addEventListener("click", exportImportIssues);
@@ -321,7 +325,7 @@ function parseImportedCsv(text, overrides = {}) {
   state.importedRows = parsed.rows;
   state.columns = parsed.columns;
   state.keyColumn = chooseColumn(parsed.columns, ["psgc_code", "psgc", "code"], parsed.columns[0] || "psgc_code");
-  state.valueColumn = chooseNumericColumn(parsed.rows, parsed.columns) || chooseColumn(parsed.columns, ["value", "count", "rate"], parsed.columns[1] || parsed.columns[0] || "value");
+  state.valueColumn = chooseNumericColumn(parsed.rows, parsed.columns, state.keyColumn) || "";
   state.labelColumn = chooseColumn(parsed.columns, ["label", "annotation", "note"], "");
   state.placeOverrides = {};
   state.selectedCode = null;
@@ -363,7 +367,8 @@ function syncControls(join = buildJoin(), visibleFeatures = getVisibleFeatures()
   el.labelModeSelect.value = state.labelMode;
   el.labelSizeInput.value = state.labelSize;
   el.showMapLegendInput.checked = state.showMapLegend;
-  el.retryBoundariesButton.hidden = state.generatedBoundaryStatus === "ready" && !failedBarangayScopes.size;
+  el.retryBoundariesButton.hidden = state.generatedBoundaryStatus === "ready" && !failedBarangayScopes.size && !viewportDetailFailed.size && ![...generatedBarangayDetailStatus.values()].includes("fallback");
+  el.retryBoundariesButton.disabled = state.generatedBoundaryStatus === "loading";
   el.statisticLabelInput.value = state.statisticLabel;
   el.downloadTemplateButton.disabled = !visibleFeatures.length;
   el.loadExampleValues.disabled = !visibleFeatures.length;
@@ -515,10 +520,20 @@ function renderMap(visibleFeatures, join) {
   const canvasSize = { width: rect.width, height: rect.height };
   const fittedViewBox = rect.width > 0 && rect.height > 0 ? fitExportViewBox(contentViewBox, rect.width, rect.height) : contentViewBox;
   const key = `${state.boundarySource}:${state.scopeId}:${state.level}:${visibleFeatures.length}`;
+  if (mapViewKey !== key) clearViewportBoundaryDetail(false);
   if (!mapViewBox || mapViewKey !== key) mapViewBox = fittedViewBox;
   else if (mapCanvasSize && rect.width > 0 && rect.height > 0 && (rect.width !== mapCanvasSize.width || rect.height !== mapCanvasSize.height)) {
     cancelMapGesture?.();
     mapViewBox = mapBoxForCanvas(fittedViewBox, canvasSize);
+  }
+  let restoredCamera = false;
+  if (state.camera && visibleFeatures.length && (state.boundarySource !== "generated" || state.generatedBoundaryStatus === "ready")) {
+    const camera = state.camera;
+    if (camera.scopeId === state.scopeId && camera.level === state.level && camera.boundarySource === state.boundarySource && (state.boundarySource !== "generated" || !camera.snapshot || camera.snapshot === state.boundaryMetadata.snapshot)) {
+      mapViewBox = fitExportViewBox(camera.viewBox, rect.width || 1, rect.height || 1);
+      restoredCamera = true;
+    }
+    state.camera = null;
   }
   mapContentViewBox = contentViewBox;
   mapFittedViewBox = fittedViewBox;
@@ -600,6 +615,7 @@ function renderMap(visibleFeatures, join) {
   const layout = createSvgElement("g", { class: "map-layout" });
   el.mapSvg.appendChild(layout);
   renderNavigationLayout(focusedLayoutItem);
+  if (restoredCamera) Promise.resolve().then(maybeLoadViewportBoundaryDetail);
 }
 
 function cachedFeatureGeometry(feature) {
@@ -691,7 +707,7 @@ function renderMapLegend(scale, features, join, viewBox, target = el.mapSvg) {
   if (!entries.length) return;
   const unit = layoutUnitsPerPixel(viewBox), size = 12 * unit * state.legendScale, padding = size * 0.8;
   const maxWidth = Math.min(viewBox[2] * 0.85, 260 * unit), maxChars = Math.max(8, Math.floor((maxWidth - padding * 2 - size * 2.8) / (size * 0.58)));
-  const heading = state.legendTitle.trim() || (state.statisticLabel.trim().toLowerCase() === "value" ? "Statistic" : state.statisticLabel.trim()) || "Statistic";
+  const heading = state.legendTitle.trim() || statisticHeading();
   const titleLines = wrapLayoutText(heading, maxChars + 3);
   const rows = entries.map((entry) => ({ ...entry, lines: wrapLayoutText(entry.label, maxChars) }));
   const width = Math.min(maxWidth, Math.max(...titleLines.map((line) => line.length * size * 0.62 + padding * 2), ...rows.flatMap((row) => row.lines.map((line) => line.length * size * 0.58 + padding * 2 + size * 2.8))));
@@ -892,9 +908,30 @@ function zoomMap(factor, anchor = null) {
 }
 
 function bindMapNavigation() {
-  let drag = null, moved = false;
+  let drag = null, moved = false, pinch = null;
+  const touches = new Map();
+  const cancelPinch = () => {
+    const ids = [...touches.keys()];
+    touches.clear(); pinch = null; drag = null; moved = true;
+    for (const id of ids) if (el.mapSvg.hasPointerCapture?.(id)) el.mapSvg.releasePointerCapture(id);
+    el.mapSvg.classList.remove("is-panning");
+    refreshNavigationLabels();
+  };
   const finishDrag = (event) => {
+    if (event.type === "lostpointercapture" && event.target !== el.mapSvg && el.mapSvg.hasPointerCapture?.(event.pointerId)) return;
+    if (pinch && touches.has(event.pointerId)) {
+      if (event.type !== "pointerup") { cancelPinch(); return; }
+      touches.delete(event.pointerId); pinch = null;
+      if (el.mapSvg.hasPointerCapture?.(event.pointerId)) el.mapSvg.releasePointerCapture(event.pointerId);
+      const remaining = [...touches.entries()][0], matrix = el.mapSvg.getScreenCTM();
+      drag = remaining && matrix ? { id: remaining[0], x: remaining[1].x, y: remaining[1].y,
+        box: [...mapViewBox], inverse: matrix.inverse() } : null;
+      if (!drag) { touches.clear(); el.mapSvg.classList.remove("is-panning"); }
+      refreshNavigationLabels();
+      return;
+    }
     if (!drag || event.pointerId !== drag.id) return;
+    touches.delete(event.pointerId);
     const finished = drag, dragged = moved;
     if (event.type === "pointercancel") moved = true;
     drag = null;
@@ -909,7 +946,7 @@ function bindMapNavigation() {
       syncLayoutControls();
     } else if (dragged) refreshNavigationLabels();
   };
-  cancelMapGesture = () => { if (drag) finishDrag({ pointerId: drag.id, type: "pointercancel" }); };
+  cancelMapGesture = () => { if (pinch) cancelPinch(); else if (drag) finishDrag({ pointerId: drag.id, type: "pointercancel" }); };
   const select = (event) => {
     if (event.type === "click" && moved) { moved = false; return; }
     if (layoutEditor.enabled) {
@@ -936,9 +973,26 @@ function bindMapNavigation() {
     if (event.key === "Enter" || event.key === " ") { event.preventDefault(); select(event); }
   });
   el.mapSvg.addEventListener("pointerdown", (event) => {
-    if (event.button !== 0 || event.isPrimary === false || !mapViewBox || drag) return;
-    event.preventDefault();
+    if (event.button !== 0 || !mapViewBox) return;
     const item = event.target.closest?.("[data-layout-item]");
+    if (event.pointerType === "touch" && !layoutEditor.enabled && (!item || touches.size)) {
+      if (touches.size >= 2 || (!touches.size && event.isPrimary === false) || (drag && !touches.has(drag.id))) return;
+      event.preventDefault();
+      touches.set(event.pointerId, { x: event.clientX, y: event.clientY });
+      if (touches.size === 2) {
+        const [a, b] = touches.values(), matrix = el.mapSvg.getScreenCTM();
+        if (!matrix) { touches.delete(event.pointerId); return; }
+        const inverse = matrix.inverse();
+        pinch = { distance: Math.max(1, Math.hypot(b.x - a.x, b.y - a.y)), box: [...mapViewBox], inverse,
+          anchor: new DOMPoint((a.x + b.x) / 2, (a.y + b.y) / 2).matrixTransform(inverse) };
+        drag = null; moved = true;
+        for (const id of touches.keys()) el.mapSvg.setPointerCapture(id);
+        el.mapSvg.classList.add("is-panning"); hideTooltip();
+        return;
+      }
+    }
+    if (event.isPrimary === false || drag || pinch) return;
+    event.preventDefault();
     if (layoutEditor.enabled) {
       if (!item) return;
       const layoutId = item.getAttribute("data-layout-item");
@@ -954,6 +1008,18 @@ function bindMapNavigation() {
     moved = false;
   });
   el.mapSvg.addEventListener("pointermove", (event) => {
+    if (touches.has(event.pointerId)) touches.set(event.pointerId, { x: event.clientX, y: event.clientY });
+    if (pinch) {
+      if (!touches.has(event.pointerId)) return;
+      if (!(event.buttons & 1)) { cancelPinch(); return; }
+      const [a, b] = touches.values(), distance = Math.max(1, Math.hypot(b.x - a.x, b.y - a.y));
+      const [x, y, width, height] = pinch.box, fittedWidth = mapFittedViewBox?.[2] || width;
+      const newWidth = clamp(width * pinch.distance / distance, Math.max(1e-9, fittedWidth / 4096), fittedWidth * 8);
+      const ratio = newWidth / width, point = new DOMPoint((a.x + b.x) / 2, (a.y + b.y) / 2).matrixTransform(pinch.inverse);
+      updateMapViewport([pinch.anchor.x - (point.x - x) * ratio, pinch.anchor.y - (point.y - y) * ratio, newWidth, height * ratio]);
+      hideTooltip();
+      return;
+    }
     if (drag) {
       if (event.pointerId !== drag.id) return;
       if (!(event.buttons & 1)) { finishDrag(event); return; }
@@ -981,7 +1047,7 @@ function bindMapNavigation() {
   el.mapSvg.addEventListener("wheel", (event) => {
     if (!mapViewBox || !event.deltaY) return;
     event.preventDefault();
-    if (drag) return;
+    if (drag || pinch) return;
     const point = mapPointFromClient(event.clientX, event.clientY);
     if (!point) return;
     const pixels = event.deltaY * (event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? el.mapSvg.getBoundingClientRect().height : 1);
@@ -1000,7 +1066,8 @@ function renderLayoutText(viewBox, target = el.mapSvg) {
   const unit = layoutUnitsPerPixel(viewBox), width = viewBox[2], height = viewBox[3];
   const narrow = el.mapSvg.getBoundingClientRect().width < 600;
   let nextY = 0.025;
-  for (const [id, content, baseSize, weight] of [["title", state.layoutTitle, 20, 800], ["subtitle", state.layoutSubtitle, 12, 400], ["source", state.sourceNote, 9, 400]]) {
+  const source = [state.sourceNote, [state.metricPeriod, state.metricSource].filter(Boolean).join(" · ")].filter(Boolean).join("\n");
+  for (const [id, content, baseSize, weight] of [["title", state.layoutTitle, 20, 800], ["subtitle", state.layoutSubtitle, 12, 400], ["source", source, 9, 400]]) {
     if (!content.trim()) continue;
     const size = baseSize * unit * state.layoutTextScale;
     const maxWidth = width * (id === "source" || narrow ? 0.9 : 0.62);

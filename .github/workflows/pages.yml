@@ -28,15 +28,12 @@ jobs:
       - name: Validate the app
         run: npm test
       - name: Build the pinned Philippine boundary package
-        run: |
-          node tools/fetch-boundaries.mjs --include-barangays --release v2026.4.13.0
-          node tools/fetch-boundary-detail.mjs
-          node tools/check-boundaries.mjs
+        run: npm run boundaries:full
       - name: Stage the static app and generated map data
         run: |
           mkdir -p _site/data
           cp index.html styles.css LICENSE README.md _site/
-          cp -R src assets _site/
+          cp -R src assets docs _site/
           cp data/source_metadata.json _site/data/
           cp -R data/generated _site/data/
       - uses: actions/configure-pages@v5

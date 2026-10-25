@@ -1,5 +1,7 @@
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { readFile } from "node:fs/promises";
 import { extname, resolve } from "node:path";
+import { validateCollection } from "./fetch-boundaries.mjs";
+import { writeOutputSet } from "./write-output-set.mjs";
 
 const DEFAULTS = {
   psgc: "tools/fixtures/psgc_sample.csv",
@@ -84,6 +86,7 @@ async function readGeoJson(filePath) {
   if (collection.type !== "FeatureCollection" || !Array.isArray(collection.features)) {
     throw new Error(`${filePath} must be a GeoJSON FeatureCollection`);
   }
+  validateCollection(collection, collection.features.length, filePath);
   return collection;
 }
 
@@ -272,23 +275,26 @@ function buildLookup(features, psgcOnly) {
 }
 
 async function writeOutputs(options, reconciliation) {
-  await mkdir(options.out, { recursive: true });
   const boundaryPath = resolve(options.out, "admin_boundaries.normalized.geojson");
   const lookupPath = resolve(options.out, "admin_lookup.json");
-  await writeFile(boundaryPath, `${JSON.stringify(reconciliation.featureCollection, null, 2)}\n`);
-  await writeFile(lookupPath, `${JSON.stringify(reconciliation.lookup, null, 2)}\n`);
-  await writeFile(options.report, buildReport(reconciliation));
-  await writeGeneratedMetadata(options, reconciliation, boundaryPath, lookupPath);
+  const metadata = await generatedMetadata(options, reconciliation, boundaryPath, lookupPath);
+  await writeOutputSet([
+    { path: boundaryPath, bytes: `${JSON.stringify(reconciliation.featureCollection, null, 2)}\n` },
+    { path: lookupPath, bytes: `${JSON.stringify(reconciliation.lookup, null, 2)}\n` },
+    { path: options.report, bytes: buildReport(reconciliation) },
+    { path: options.metadata, bytes: `${JSON.stringify(metadata, null, 2)}\n` }
+  ]);
   console.log(`Wrote ${reconciliation.featureCollection.features.length} normalized boundary features`);
   console.log(`Wrote ${lookupPath}`);
   console.log(`Wrote ${options.report}`);
 }
 
-async function writeGeneratedMetadata(options, reconciliation, boundaryPath, lookupPath) {
+async function generatedMetadata(options, reconciliation, boundaryPath, lookupPath) {
   let metadata = {};
   try {
     metadata = JSON.parse(await readFile(options.metadata, "utf8"));
-  } catch {
+  } catch (error) {
+    if (error.code !== "ENOENT") throw error;
     metadata = {};
   }
   metadata.latest_pipeline_run = {
@@ -303,7 +309,7 @@ async function writeGeneratedMetadata(options, reconciliation, boundaryPath, loo
     psgc_only_records: reconciliation.psgcOnly.length,
     boundary_only_records: reconciliation.boundaryOnly.length
   };
-  await writeFile(options.metadata, `${JSON.stringify(metadata, null, 2)}\n`);
+  return metadata;
 }
 
 function repoRelativePath(filePath) {
@@ -379,7 +385,8 @@ async function validateGenerated(boundariesPath, lookupPath) {
   const boundaries = JSON.parse(await readFile(boundariesPath, "utf8"));
   const lookup = JSON.parse(await readFile(lookupPath, "utf8"));
   const errors = [];
-  if (boundaries.type !== "FeatureCollection") errors.push("normalized boundaries must be a FeatureCollection");
+  validateCollection(boundaries, boundaries.features?.length, "normalized boundaries");
+  if (!Array.isArray(lookup)) throw new Error("lookup must be an array");
   for (const feature of boundaries.features || []) {
     for (const field of ["psgc_code", "name", "level", "match_status"]) {
       if (!feature.properties?.[field]) errors.push(`feature missing ${field}`);
@@ -463,21 +470,16 @@ function inferLevelFromCode(code) {
 }
 
 function geometryBbox(geometry) {
-  const coords = [];
-  collectCoordinates(geometry?.coordinates, coords);
-  if (!coords.length) return null;
-  const xs = coords.map(([x]) => x);
-  const ys = coords.map(([, y]) => y);
-  return [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)];
-}
-
-function collectCoordinates(value, output) {
-  if (!Array.isArray(value)) return;
-  if (typeof value[0] === "number" && typeof value[1] === "number") {
-    output.push(value);
-    return;
+  const bounds = [Infinity, Infinity, -Infinity, -Infinity];
+  visit(geometry?.coordinates);
+  return Number.isFinite(bounds[0]) ? bounds : null;
+  function visit(value) {
+    if (!Array.isArray(value)) return;
+    if (typeof value[0] === "number" && typeof value[1] === "number") {
+      bounds[0] = Math.min(bounds[0], value[0]); bounds[1] = Math.min(bounds[1], value[1]);
+      bounds[2] = Math.max(bounds[2], value[0]); bounds[3] = Math.max(bounds[3], value[1]);
+    } else value.forEach(visit);
   }
-  value.forEach((item) => collectCoordinates(item, output));
 }
 
 main().catch((error) => {

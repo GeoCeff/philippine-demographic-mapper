@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { createReadStream, createWriteStream } from "node:fs";
 import { lstat, mkdir, mkdtemp, readFile, rename, rmdir, unlink, writeFile } from "node:fs/promises";
-import { dirname, join, relative, resolve, sep } from "node:path";
+import { dirname, join, resolve, sep } from "node:path";
 import { Readable, Transform } from "node:stream";
 import { pipeline } from "node:stream/promises";
 import { fileURLToPath } from "node:url";
@@ -9,6 +9,7 @@ import { promisify } from "node:util";
 import { gzip } from "node:zlib";
 import { sha256, validateCollection } from "./fetch-boundaries.mjs";
 import { parseDbf, readShapefileGeometry } from "./read-shapefile.mjs";
+import { writeOutputSet } from "./write-output-set.mjs";
 
 const compress = promisify(gzip);
 const REPOSITORY = "altcoder/philippines-psgc-shapefiles";
@@ -134,8 +135,7 @@ export async function buildBoundaryDetail(args = {}, source = PINNED_DETAIL_SOUR
     if (metadata.latest_boundary_release.artifacts?.barangay_index) metadata.latest_boundary_release.artifacts.barangay_index = {
       ...metadata.latest_boundary_release.artifacts.barangay_index, bytes: indexBytes.length, sha256: sha256(indexBytes)
     };
-    await atomicWrite(indexPath, indexBytes);
-    await atomicJson(metadataPath, metadata, 2);
+    await writeOutputSet([{ path: indexPath, bytes: indexBytes }, { path: metadataPath, bytes: Buffer.from(JSON.stringify(metadata, null, 2) + "\n") }]);
     const elapsed_seconds = Math.round((performance.now() - started) / 100) / 10;
     console.log(`Built ${totalFeatures} unsimplified barangay polygons in ${seenCities.size} compressed city scopes (${compressedBytes} bytes; ${elapsed_seconds}s).`);
     return { index, detail: summary, elapsed_seconds };

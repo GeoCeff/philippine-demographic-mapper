@@ -2,8 +2,9 @@
 
 const workspaceUi = {
   activePanel: "places", editorOpen: false, observedSelection: null,
-  drafts: new Map(), isOpen: false, returnFocus: null
+  drafts: new Map(), isOpen: false, returnFocus: null, focusMap: false, pagePreview: false
 };
+const workspaceBackgroundInert = new Map();
 let customizationScale = null;
 let areaOptionsIndex = null;
 
@@ -15,6 +16,7 @@ function bindWorkspaceEvents() {
     "downloadMapButton", "exportSizeSelect", "customExportSize", "replaceDataDialog", "replaceDialogText",
     "cancelReplaceButton", "saveBeforeReplaceButton", "confirmReplaceButton"]) el[id] = document.getElementById(id);
   bindThemePreference();
+  if (typeof bindProjectSession === "function") bindProjectSession();
 
   document.querySelectorAll("[data-panel], [data-open-panel]").forEach((button) => {
     button.addEventListener("click", () => setActivePanel(button.dataset.panel || button.dataset.openPanel, { focus: true }));
@@ -59,13 +61,14 @@ function bindWorkspaceEvents() {
     el.customExportSize.hidden = Boolean(size);
     el.exportWidthInput.value = state.exportWidth;
     el.exportHeightInput.value = state.exportHeight;
+    if (typeof updatePagePreview === "function") updatePagePreview();
   });
   for (const id of ["selectedPlaceValue", "selectedPlaceLabel"]) el[id].addEventListener("input", () => {
     if (state.selectedCode) workspaceUi.drafts.set(state.selectedCode, { value: el.selectedPlaceValue.value, label: el.selectedPlaceLabel.value });
     el.editStatus.textContent = "Unapplied changes. Choose Apply changes to update the map.";
   });
   document.addEventListener("keydown", (event) => {
-    if (el.boundaryDialog.open || el.replaceDataDialog.open) return;
+    if (el.boundaryDialog.open || el.replaceDataDialog.open || el.recoveryDialog?.open || el.newProjectDialog?.open) return;
     if (event.key === "Escape" && layoutEditor.enabled) { event.preventDefault(); setLayoutEditMode(false); return; }
     if (event.key === "Escape" && workspaceUi.isOpen && window.matchMedia("(max-width: 900px)").matches) {
       event.preventDefault(); closeWorkspacePanel();
@@ -196,7 +199,11 @@ function renderCustomizationControls(features, join) {
   el.layoutTextScaleOutput.textContent = `${Number(state.layoutTextScale).toFixed(1)}×`;
   const statisticName = state.statisticLabel.trim();
   el.legendTitleInput.placeholder = `Automatic: ${!statisticName || statisticName.toLowerCase() === "value" ? "Statistic" : statisticName}`;
-  el.palettePreview.innerHTML = customizationScale.colors.map((color) => `<span style="background:${color}"></span>`).join("");
+  el.palettePreview.replaceChildren(...customizationScale.colors.map((color) => {
+    const swatch = document.createElementNS("http://www.w3.org/1999/xhtml", "span");
+    swatch.setAttribute("style", `background-color:${color}`);
+    return swatch;
+  }));
   // ponytail: edit up to 32 classes here; paginate this form if larger scales need individual controls.
   const editable = customizationScale.colors.length <= 32;
   el.classControlsStatus.textContent = editable
@@ -253,6 +260,7 @@ function setActivePanel(name, { open = true, focus = false } = {}) {
 }
 
 function showPlaceEditor() {
+  if (workspaceUi.focusMap && !window.matchMedia("(max-width: 900px)").matches && typeof setMapFocus === "function") setMapFocus(false);
   if (!workspaceUi.isOpen) workspaceUi.returnFocus = document.activeElement;
   workspaceUi.editorOpen = true;
   workspaceUi.isOpen = true;
@@ -276,7 +284,16 @@ function updateWorkspacePanel() {
   el.controlsPanel.setAttribute("role", modal ? "dialog" : "complementary");
   el.controlsPanel.setAttribute("aria-labelledby", "panelHeading");
   if (modal) el.controlsPanel.setAttribute("aria-modal", "true"); else el.controlsPanel.removeAttribute("aria-modal");
-  el.controlsPanel.inert = mobile && !workspaceUi.isOpen;
+  el.controlsPanel.inert = (mobile && !workspaceUi.isOpen) || (!mobile && workspaceUi.focusMap);
+  for (const node of document.querySelectorAll(".appbar, .workspace, .mobile-taskbar")) {
+    if (modal) {
+      if (!workspaceBackgroundInert.has(node)) workspaceBackgroundInert.set(node, Boolean(node.inert));
+      node.inert = true;
+    } else if (workspaceBackgroundInert.has(node)) {
+      node.inert = workspaceBackgroundInert.get(node);
+      workspaceBackgroundInert.delete(node);
+    }
+  }
   el.panelBackdrop.hidden = !modal;
   el.placeEditor.hidden = !workspaceUi.editorOpen;
   el.panelHeading.textContent = workspaceUi.editorOpen ? "Edit place" : ({ places: "Places", data: "Data", appearance: "Appearance", export: "Export" })[workspaceUi.activePanel];
@@ -349,13 +366,8 @@ function filterAreaOptions() {
 
 function renderWorkspace(join, features) {
   if (document.activeElement !== el.projectNameInput) el.projectNameInput.value = state.projectName;
-  el.sourceStatus.textContent = state.boundarySource === "generated"
-    ? `Boundaries: ${state.boundaryMetadata.snapshot?.slice(0, 4) || "dated source"} · Incomplete coverage` : "Demonstration shapes · Not real boundaries";
-  if (state.boundarySource === "generated" && state.level === "barangay") {
-    const detail = generatedBarangayDetailStatus.get(barangayScopeKey());
-    const fine = detail === "original" || [...viewportDetailActive].some((code) => viewportDetailCities.has(code));
-    el.sourceStatus.textContent += fine ? " · Detailed borders" : detail === "fallback" ? " · Detail unavailable; overview shown" : " · Overview borders";
-  }
+  updateBoundaryDetailStatus();
+  if (typeof syncProjectWorkspace === "function") syncProjectWorkspace();
   el.dataColumns.hidden = !state.columns.length;
   el.importReviewDetails.hidden = !state.columns.length;
   el.dataKindNotice.textContent = /illustrative|sample values/i.test(state.sourceNote)
@@ -385,4 +397,18 @@ function renderWorkspace(join, features) {
   }
   updateWorkspacePanel();
   syncLayoutControls();
+}
+
+function updateBoundaryDetailStatus() {
+  if (!el.sourceStatus) return;
+  el.sourceStatus.textContent = state.boundarySource === "generated"
+    ? `Historical boundaries: ${state.boundaryMetadata.snapshot?.slice(0, 4) || "dated source"} · Incomplete coverage` : "Demonstration shapes · Not real boundaries";
+  if (state.boundarySource !== "generated" || state.level !== "barangay") return;
+  const key = barangayScopeKey(), detail = generatedBarangayDetailStatus.get(key);
+  const progress = generatedBarangayDetailProgress.get(key), viewport = viewportBoundaryDetailStatus();
+  el.sourceStatus.textContent += detail === "loading" ? ` · Loading detail${progress ? ` ${progress.completed}/${progress.total}` : ""}…`
+    : detail === "original" ? " · Detailed borders"
+    : detail === "fallback" ? " · Detail unavailable; overview shown"
+    : viewport.total ? ` · ${viewport.loaded === viewport.total ? "Detailed borders" : `Partial detail ${viewport.loaded}/${viewport.total}`}${viewport.loading ? " · Loading…" : viewport.failed ? " · Some detail unavailable" : ""}`
+    : " · Overview borders";
 }

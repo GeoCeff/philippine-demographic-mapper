@@ -11,11 +11,17 @@ const nodes = [], byId = new Map(), media = { matches: false, addEventListener()
 function element(tag, attributes = {}) {
   const listeners = new Map();
   const node = {
-    tag, attributes, dataset: {}, listeners, value: attributes.value || "", innerHTML: "", textContent: "",
+    tag, attributes, dataset: {}, listeners, children: [], value: attributes.value || "", innerHTML: "", textContent: "",
     hidden: Object.hasOwn(attributes, "hidden"), disabled: false, open: false, isConnected: true,
     setAttribute(key, value) { this.attributes[key] = String(value); },
     getAttribute(key) { return this.attributes[key] ?? null; },
     removeAttribute(key) { delete this.attributes[key]; },
+    appendChild(child) { child.parentElement = this; this.children.push(child); return child; },
+    replaceChildren(...children) {
+      this.children.forEach((child) => { child.parentElement = null; });
+      this.children = []; this.innerHTML = "";
+      children.forEach((child) => this.appendChild(child));
+    },
     addEventListener(type, listener, options = {}) {
       if (!listeners.has(type)) listeners.set(type, []);
       listeners.get(type).push({ listener, once: Boolean(options.once) });
@@ -113,9 +119,15 @@ el.zoomInButton.focus();
 context.setActivePanel("data");
 assert.equal(el.controlsPanel.dataset.open, "true");
 assert.equal(el.controlsPanel.getAttribute("aria-modal"), "true");
+const modalBackground = document.querySelectorAll(".appbar, .workspace, .mobile-taskbar");
+assert.equal(modalBackground.length, 3);
+assert(modalBackground.every((node) => node.inert), "mobile modal must make the header, map and mobile taskbar inert");
+assert(el.loadProjectButton.closest("[inert]")); assert(el.saveProjectButton.closest("[inert]")); assert(el.zoomInButton.closest("[inert]"));
+assert.equal(el.controlsPanel.closest("[inert]"), null, "the open modal itself must remain interactive");
 context.closeWorkspacePanel();
 assert.equal(el.controlsPanel.dataset.open, "false");
 assert.equal(el.controlsPanel.inert, true);
+assert(modalBackground.every((node) => !node.inert), "closing mobile tools must restore background interaction");
 assert.equal(document.activeElement, el.zoomInButton, "closing the mobile tools must restore initiating focus");
 context.setActivePanel("appearance");
 workspaceUi.returnFocus = el.selectedPlaceValue;
@@ -296,7 +308,23 @@ el.reverseColorsInput.checked = true;
 await emit(el.reverseColorsInput, "change");
 assert.equal(state.reverseColors, true);
 context.renderCustomizationControls(customizationFeatures, customizationJoin);
-assert(el.palettePreview.innerHTML.includes(baseColors.at(-1)), "palette preview must use the actual reversed scale");
+assert.equal(el.palettePreview.children[0].getAttribute("style"), `background-color:${baseColors.at(-1)}`, "palette preview must use the actual reversed scale");
+const beforePreviewProbe = { ...state };
+try {
+  const unsafeColor = 'red"><img src="data:," onerror="document.documentElement.dataset.auditPoc=1">';
+  Object.assign(state, context.validateProjectState({ scopeId: "PH", level: "region", classification: "highlight", highlightColor: unsafeColor }));
+  context.renderCustomizationControls(customizationFeatures, customizationJoin);
+  assert.equal(el.palettePreview.children.length, 1);
+  assert.match(el.palettePreview.children[0].getAttribute("style"), /^background-color:#[0-9a-f]{6}$/);
+  state.highlightColor = unsafeColor;
+  context.renderCustomizationControls(customizationFeatures, customizationJoin);
+  assert.equal(el.palettePreview.children.length, 1);
+  assert.equal(el.palettePreview.children[0].tag, "span");
+  assert.equal(el.palettePreview.children[0].children.length, 0, "unsafe-looking color text must never be parsed as HTML");
+  assert.equal(el.palettePreview.innerHTML, "");
+  assert.equal(document.documentElement.dataset.auditPoc, undefined);
+} finally { Object.assign(state, beforePreviewProbe); }
+context.renderCustomizationControls(customizationFeatures, customizationJoin);
 
 const colorInput = element("input", { "data-class-color": "0" });
 colorInput.value = "#123456";

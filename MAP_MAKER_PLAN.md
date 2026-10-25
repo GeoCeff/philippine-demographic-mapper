@@ -1,8 +1,10 @@
 # Demographic Map Maker Plan
 
-Baseline planning date: 2026-05-27. Implementation update: 2026-10-20.
+Baseline planning date: 2026-05-27. Implementation update: 2026-10-25.
 
-The current app keeps its dependency-free static implementation. Real historical boundaries at every level, nationwide/scoped barangay loading, per-place labels/statistics, manual edits, and SVG/PNG legends are now implemented. The original stack/tile proposals below are future scaling options, not required dependencies.
+The current app keeps its dependency-free static implementation. Real historical boundaries at every level, nationwide/scoped barangay loading, per-place labels/statistics, manual edits, and SVG/PNG legends are implemented. The editor includes movable map text/legends, color controls, light/dark UI, pan/pinch/zoom, Focus map and an export page preview. JSON projects retain camera and metric metadata; IndexedDB recovery, New and bounded undo/redo support local editing.
+
+Pinned overview and original ADM4 detail builds use native Node tools with checksums and explicit incomplete coverage. Full-package validation is read-only, and output publication stages files with rollback on failure. The original stack/tile proposals below remain future scaling options, not required dependencies. See [README.md](README.md) for current usage and [tools/README.md](tools/README.md) for the implemented pipeline.
 
 ## Goal
 
@@ -11,7 +13,7 @@ Build a program for creating clean, infographic-style Philippine demographic map
 The core product is a local-first map design app where the user can:
 
 - Pick a Philippine geography level: country, region, province, city/municipality, or barangay.
-- Load a demographic dataset keyed by PSGC code or matched location name.
+- Load a demographic dataset keyed by PSGC code; reviewed name-assisted matching for imported statistics remains future work.
 - Style the selected geography as a choropleth or highlighted map.
 - Export a polished static image for reports, social posts, or infographics.
 
@@ -45,7 +47,7 @@ First version should focus on the map body only:
 - Transparent or solid background.
 - Export-ready layout.
 
-## Recommended Product Shape
+## Future Product/Stack Options
 
 Build a web app that runs locally during development and can later be packaged as a desktop app if needed.
 
@@ -81,7 +83,9 @@ The app should clearly record dataset version, source, and caveats. HDX/OCHA bou
 
 ## Data Pipeline
 
-Create a repeatable `data` build pipeline:
+The implemented complete build is `npm run boundaries:full`; `npm run boundaries:check` verifies existing sources, outputs and exact detail geometry. The general custom-source importer writes isolated normalized GeoJSON, lookup, report and metadata; see [data/raw/README.md](data/raw/README.md). It does not rebuild the active country's full package.
+
+The original future scaling pipeline is:
 
 1. Download source boundary files.
 2. Normalize all admin levels to a common CRS.
@@ -128,7 +132,7 @@ Outputs:
    - city/municipality
    - barangay
 4. Import data:
-   - CSV or XLSX
+   - CSV is implemented; XLSX remains future work
    - required value column
    - preferred join key: PSGC code
    - fallback join: normalized name plus parent geography
@@ -170,29 +174,23 @@ MVP non-goals:
 - Manual polygon editing.
 - Legal-boundary certification.
 
-## Key Features After MVP
+## Remaining Features After MVP
 
-- Fuzzy name matching with a review table.
+The editor already provides labels, match review, movable legend/text presets, square/portrait/report-size exports, and equal-interval, quantile, continuous, highlight and custom-threshold color modes.
+
+- Reviewed fuzzy matching for imported user data beyond normalized name plus parent context.
 - XLSX import.
-- Preset layouts inspired by editorial/social graphics.
 - Insets for small or island-heavy geographies.
-- Label and callout editor.
-- Export templates:
-  - square
-  - 4:5 social post
-  - portrait report page
-  - widescreen slide
+- Callout leader lines and richer editorial/export templates.
 - Batch export for multiple provinces or cities.
-- Data classification modes:
-  - equal interval
-  - quantile
-  - natural breaks
-  - custom thresholds
-- Accessibility checks for color contrast and colorblind-safe palettes.
+- Natural-breaks classification.
+- Broader automated accessibility and export-image checks; a colorblind-safe palette is already available.
 
-## Technical Architecture
+## Future Architecture Options
 
-Frontend modules:
+Current rendering uses classic-script modules under `src`, an SVG projection, batched paths, viewport culling, spatial hit testing and bounded original-detail loading. Local recovery is in `src/project-session.js`; data extraction/validation lives under `tools`. The following component names describe a possible migration, not existing files.
+
+Proposed frontend modules:
 
 - `MapCanvas`: renders MapLibre map, handles viewport and layers.
 - `LayerPanel`: toggles admin levels and visual layers.
@@ -202,7 +200,7 @@ Frontend modules:
 - `ExportPanel`: controls dimensions, scale, background, and file type.
 - `ProjectStore`: stores map scope, data joins, styles, and export settings.
 
-Backend or CLI modules:
+Proposed backend or CLI modules:
 
 - `fetch_sources`: downloads or verifies source files.
 - `build_psgc_index`: pulls PSA PSGC records and versions.
@@ -211,7 +209,9 @@ Backend or CLI modules:
 - `build_tiles`: creates vector tile or PMTiles outputs.
 - `build_fixtures`: creates small sample datasets for tests and demos.
 
-## Rendering Strategy
+## Future Tile Rendering Strategy
+
+Current PNG/SVG export uses the SVG map and preserved geometry. Vector tiles and PDF export below are proposals.
 
 Use vector tiles for normal interaction:
 
@@ -230,7 +230,7 @@ Use a dedicated export path:
 
 ## Performance Risks
 
-- Full barangay GeoJSON is too large for direct browser rendering.
+- Loading all original barangay detail at once is too large for normal browser interaction; keep the overview and bounded detail tiers.
 - Island geometry can create very large polygon feature counts.
 - Fuzzy matching can produce false positives if barangay names repeat across cities.
 - Exporting high-resolution images can fail if the browser canvas exceeds GPU limits.
@@ -247,9 +247,10 @@ Mitigations:
 
 Data validation:
 
-- Compare PSA PSGC barangay count with boundary feature count.
-- Confirm every imported sample PSGC code maps to exactly one feature.
+- Report source polygon count, distinct PSGC count and documented missing places separately.
+- Preserve every source polygon, including repeated PSGC assignments; apply a joined statistic consistently to all records sharing its code.
 - Produce a report for unmatched or ambiguous geographies.
+- Verify raw/generated hashes, exact original detail coordinates, islands/holes and indexed scope membership.
 
 Rendering validation:
 
@@ -268,7 +269,7 @@ Export validation:
 
 ## Suggested Milestones
 
-### Milestone 1: Data Foundation
+### Milestone 1: Data Foundation — Implemented for the Pinned Historical Source
 
 - Set up project skeleton.
 - Add data-source metadata file.
@@ -276,46 +277,46 @@ Export validation:
 - Convert boundary source into normalized local data.
 - Produce first reconciliation report.
 
-### Milestone 2: Tile Generation
+### Milestone 2: Tile Generation — Future Option
 
 - Generate vector tiles/PMTiles for admin levels.
 - Confirm tiles render in a minimal MapLibre page.
 - Add parent-geography filters.
 
-### Milestone 3: Basic Map Editor
+### Milestone 3: Basic Map Editor — Implemented
 
 - Add map canvas.
 - Add geography scope picker.
 - Add layer styling controls.
 - Add simple color ramp.
 
-### Milestone 4: Data Join
+### Milestone 4: Data Join — Implemented
 
 - Add CSV import.
 - Join by PSGC code.
 - Display matched and unmatched records.
 - Apply values to choropleth fills.
 
-### Milestone 5: Export
+### Milestone 5: Export — Implemented for PNG/SVG and Project JSON
 
 - Add fixed-size export frame.
 - Export PNG.
 - Save and reload project JSON.
 
-### Milestone 6: Infographic Polish
+### Milestone 6: Infographic Polish — Partly Implemented
 
-- Add layout presets.
+- Movable legend/map text, labels and layout presets are implemented.
 - Add inset support.
-- Add optional labels and callouts.
+- Add callouts.
 - Add ranking/card overlays later, after map rendering is reliable.
 
 ## Open Decisions
 
-- Package target: local web app only, desktop app, or both.
-- Preferred export sizes.
-- Whether the app should ship with prebuilt boundary tiles or build them locally.
-- Whether to support only PSGC-coded imports in MVP or include fuzzy matching immediately.
-- Whether SVG/PDF export is required early or PNG is enough first.
+- Whether a desktop package is useful beyond the current static web app.
+- Which additional export templates, insets and batch workflows are useful.
+- Whether vector tiles justify a new rendering stack beyond the current bounded detail approach.
+- How to review future fuzzy matching without silently joining ambiguous places.
+- Whether PDF export is needed alongside the existing PNG/SVG outputs.
 
 ## Definition of Done for MVP
 

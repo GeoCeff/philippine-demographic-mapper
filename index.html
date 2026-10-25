@@ -3,6 +3,15 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="Create Philippine choropleth maps from PSGC CSV data. Customize labels, colors and legends, recover local projects, and export SVG/PNG. Historical 2023 boundaries.">
+    <meta name="application-name" content="Philippine Demographic Mapper">
+    <meta property="og:title" content="Philippine Demographic Mapper">
+    <meta property="og:description" content="A local-first map editor with barangay boundaries, custom legends, recovery, and SVG/PNG export. Historical 2023 data.">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://geoceff.github.io/philippine-demographic-mapper/">
+    <meta property="og:image" content="https://geoceff.github.io/philippine-demographic-mapper/docs/images/editor-desktop.png">
+    <meta property="og:image:alt" content="Philippine map editor with explicitly illustrative province scores">
+    <meta name="twitter:card" content="summary_large_image">
     <title>Philippine Map Maker</title>
     <meta name="color-scheme" content="light dark">
     <link rel="preload" href="assets/fonts/geist.woff2" as="font" type="font/woff2" crossorigin>
@@ -19,6 +28,7 @@
     <script src="src/map-performance.js" defer></script>
     <script src="src/export.js" defer></script>
     <script src="src/ui.js" defer></script>
+    <script src="src/project-session.js" defer></script>
     <script src="src/app.js" defer></script>
   </head>
   <body>
@@ -29,8 +39,9 @@
           <div><span class="eyebrow">A place for your data</span><h1 class="app-name">Philippine Map Maker</h1></div>
         </div>
         <label class="project-title">
-          <span class="visually-hidden">Project title</span>
+          <span class="visually-hidden">Project name</span>
           <input id="projectNameInput" type="text" value="Philippines by province" aria-label="Project title" autocomplete="off">
+          <span id="projectSaveStatus" class="project-save-status" role="status">Local recovery is starting…</span>
         </label>
         <label class="theme-control"><span class="visually-hidden">Interface theme</span><select id="themeSelect" aria-label="Interface theme" title="Interface theme; map and export colors stay as you set them"><option value="system">System</option><option value="light">Light</option><option value="dark">Dark</option></select></label>
         <nav class="project-actions" aria-label="Project actions">
@@ -47,6 +58,11 @@
             <h2 id="panelHeading">Places</h2>
             <button id="closeControlsButton" class="close-panel-button" type="button" aria-label="Close tools and return to map">Close</button>
           </header>
+          <div class="project-edit-actions" role="group" aria-label="Project editing">
+            <button id="newProjectButton" type="button">New</button>
+            <button id="undoProjectButton" type="button" disabled>Undo</button>
+            <button id="redoProjectButton" type="button" disabled>Redo</button>
+          </div>
           <div id="taskTabs" class="task-tabs" role="tablist" aria-label="Map tasks">
             <button id="tab-places" type="button" role="tab" data-panel="places" aria-selected="true" aria-controls="panel-places">Places</button>
             <button id="tab-data" type="button" role="tab" data-panel="data" aria-selected="false" aria-controls="panel-data" tabindex="-1">Data</button>
@@ -88,15 +104,23 @@
 
             <section id="panel-data" class="task-panel" role="tabpanel" aria-labelledby="tab-data" tabindex="0" hidden>
               <p class="panel-intro"><span class="eyebrow">02 — Statistics</span>Give your map meaning.</p>
-              <p class="note">The template has place identifiers and blank statistic and label columns. Keep identifiers unchanged, including leading zeros. PSGC means Philippine Standard Geographic Code: it identifies a place, not its population.</p>
+              <p class="note">Import a CSV with place codes and one statistic, or download a ready-to-fill template. Keep leading zeros in place codes.</p>
               <div class="stacked-actions">
                 <button id="downloadTemplateButton" type="button">Download CSV template</button>
                 <label class="file-upload primary-button"><span>Import CSV</span><input id="csvInput" type="file" accept=".csv,text/csv" aria-label="Import CSV"></label>
                 <button id="loadExampleValues" type="button">Try sample data</button>
               </div>
               <p id="dataKindNotice" class="note">No data added yet. Sample numbers are illustrative, not demographic observations.</p>
-              <label class="field"><span>Statistic name or unit</span><input id="statisticLabelInput" type="text" value="Value" maxlength="60" placeholder="e.g. People per km²" aria-describedby="statisticNameHelp"></label>
+              <label class="field"><span>Statistic name</span><input id="statisticLabelInput" type="text" value="Value" maxlength="60" placeholder="e.g. Population density" aria-describedby="statisticNameHelp"></label>
+              <details class="more-options"><summary>Metric details and local recovery</summary><div class="disclosure-content">
+              <label class="field"><span>Unit</span><input id="metricUnitInput" type="text" maxlength="60" placeholder="e.g. people/km²"></label>
+              <label class="field"><span>Reference period</span><input id="metricPeriodInput" type="text" maxlength="60" placeholder="e.g. 2025 census"></label>
+              <label class="field"><span>Statistics source</span><input id="metricSourceInput" type="text" maxlength="500" placeholder="Source organization or URL"></label>
+              <label class="field"><span>Decimal places</span><select id="numberPrecisionSelect"><option value="auto">Automatic · preserve small values</option><option value="0">0</option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option><option value="6">6</option><option value="7">7</option><option value="8">8</option></select></label>
               <p id="statisticNameHelp" class="note">Names your numbers in the legend and place details. Changing this label does not convert the numbers.</p>
+              <button id="clearRecoveryButton" class="text-button" type="button">Clear local recovery</button>
+              </div></details>
+              <p id="sourceVersionNotice" class="note" role="status" hidden></p>
               <div id="dataColumns" class="field-group" hidden>
                 <label class="field"><span>Place identifier column</span><select id="keyColumnSelect"></select></label>
                 <label class="field"><span>Statistic column</span><select id="valueColumnSelect"></select></label>
@@ -152,6 +176,10 @@
               <details class="more-options">
                 <summary>Map text and layout</summary>
                 <div class="disclosure-content">
+                  <label class="field"><span>Map title</span><input id="layoutTitleInput" type="text" value="Philippines by province" maxlength="240"></label>
+                  <label class="field"><span>Subtitle</span><input id="layoutSubtitleInput" type="text" value="Add your statistics by place code" maxlength="500"></label>
+                  <label class="field"><span>Source note</span><textarea id="sourceNoteInput" rows="3" maxlength="2000">Boundaries: PSA / NAMRIA, 2023 snapshot. Historical coverage gaps apply.</textarea></label>
+                  <label class="toggle"><input id="showLayoutTextInput" type="checkbox" checked><span>Show title and source note</span></label>
                   <label class="field color-field"><span>Title and source text color</span><input id="layoutTextColorInput" type="color" value="#20231f"></label>
                   <label class="field range-field"><span>Title and source text size <output id="layoutTextScaleOutput" for="layoutTextScaleInput">1.0×</output></span><input id="layoutTextScaleInput" type="range" min="0.5" max="2" step="0.1" value="1"></label>
                   <label class="field"><span>Position an item</span><select id="layoutItemSelect"><option value="legend">Legend</option><option value="title">Title</option><option value="subtitle">Subtitle</option><option value="source">Source note</option></select></label>
@@ -179,6 +207,7 @@
                   <p id="classificationHelp" class="note">Equal value ranges split the full statistic range into equal-sized groups.</p>
                   <div id="thresholdsField" hidden><label class="field"><span>Break values</span><input id="customThresholdsInput" type="text" value="" placeholder="10, 25, 50" aria-describedby="breakHelp"></label><p id="breakHelp" class="note">Separate values with commas.</p></div>
                   <div id="binsField"><label class="field range-field"><span>Number of color groups <output id="binsOutput" for="binsInput">7</output></span><input id="binsInput" type="range" min="3" max="7" value="7"></label></div>
+                  <label class="field"><span>Boundary preset</span><select id="borderPresetSelect"><option value="custom">Custom</option><option value="clean">Clean · subtle boundaries</option><option value="detailed">Detailed · clear boundaries</option><option value="print">Print · dark boundaries</option></select></label>
                   <label class="field color-field"><span>Boundary color</span><input id="borderColorInput" type="color" value="#ffffff"></label>
                   <label class="field"><span>Boundary width</span><input id="borderWidthInput" type="number" min="0" max="8" step="0.25" value="0.45"></label>
                   <label class="field color-field"><span>Missing-data color</span><input id="missingColorInput" type="color" value="#e8ebe6"></label>
@@ -192,11 +221,8 @@
 
             <section id="panel-export" class="task-panel" role="tabpanel" aria-labelledby="tab-export" tabindex="0" hidden>
               <p class="panel-intro"><span class="eyebrow">04 — Output</span>Ready to share.</p>
-              <p class="note">Panning and zooming determine what is included. A different image shape may add margins to keep the full view.</p>
-              <label class="field"><span>Title</span><input id="layoutTitleInput" type="text" value="Philippines by province"></label>
-              <label class="field"><span>Subtitle</span><input id="layoutSubtitleInput" type="text" value="Add your statistics by place code"></label>
-              <label class="field"><span>Source note</span><textarea id="sourceNoteInput" rows="3">Boundaries: PSA / NAMRIA, 2023 snapshot. Coverage gaps and upstream simplification apply.</textarea></label>
-              <label class="toggle"><input id="showLayoutTextInput" type="checkbox" checked><span>Show title and source note</span></label>
+              <p class="note">Pan and zoom to frame your map. Page preview shows the selected image shape before downloading.</p>
+              <label class="toggle"><input id="pagePreviewInput" type="checkbox"><span>Preview export page</span></label>
               <p class="note">Legend and background settings are in <button class="text-button" type="button" data-open-panel="appearance">Appearance</button>.</p>
               <label class="field"><span>Format</span><select id="exportFormatSelect"><option value="png">PNG image</option><option value="svg">SVG vector image</option></select></label>
               <label class="field"><span>Size</span><select id="exportSizeSelect"><option value="square">Square · 1600 × 1600</option><option value="portrait" selected>Portrait · 1600 × 2000</option><option value="report">Report · 2400 × 1800</option><option value="custom">Custom size</option></select></label>
@@ -236,11 +262,12 @@
               <button id="zoomInButton" type="button" aria-label="Zoom in" title="Zoom in">+</button>
               <button id="zoomOutButton" type="button" aria-label="Zoom out" title="Zoom out">−</button>
               <button id="fitMapButton" type="button">Fit map</button>
+              <button id="focusMapButton" type="button" aria-pressed="false">Focus map</button>
               <button id="arrangeMapButton" type="button" aria-pressed="false">Arrange map</button>
               <button id="clearSelectionButton" type="button">Clear selection</button>
               <p id="layoutEditStatus" class="layout-edit-status" role="status" hidden></p>
             </div>
-            <svg id="mapSvg" role="img" aria-labelledby="mapTitle" preserveAspectRatio="xMidYMid meet"></svg>
+            <div id="mapCanvas" class="map-canvas"><svg id="mapSvg" role="img" aria-labelledby="mapTitle" preserveAspectRatio="xMidYMid meet"></svg></div>
             <p id="mapStatus" class="map-status" role="status" aria-live="polite"></p>
             <div id="mapTooltip" class="tooltip" role="tooltip" hidden></div>
           </section>
@@ -258,11 +285,11 @@
         <button type="button" data-open-panel="export" aria-controls="controlsPanel">Export</button>
       </nav>
     </div>
-    <button id="panelBackdrop" class="panel-backdrop" type="button" aria-label="Close tools and return to map" hidden></button>
+    <button id="panelBackdrop" class="panel-backdrop" type="button" tabindex="-1" aria-hidden="true" aria-label="Close tools and return to map" hidden></button>
 
     <dialog id="boundaryDialog" aria-labelledby="boundaryDialogTitle">
       <h2 id="boundaryDialogTitle">About these boundaries</h2>
-      <p>These are historical, simplified Philippine boundaries based on a 2023 snapshot. Some source polygons are missing, and place matches may need review. They do not represent the current official administrative hierarchy.</p>
+      <p>These are historical Philippine boundaries from 2023. Overview maps use simplified shapes; eligible close views load original detailed borders. Some polygons are missing and matches may need review. This is not the current official administrative hierarchy.</p>
       <details class="more-options"><summary>Source and coverage details</summary><p id="densityNote" class="note technical-note"></p></details>
       <button id="retryBoundariesButton" type="button">Retry boundary loading</button>
       <form method="dialog" class="dialog-actions"><button id="closeBoundaryDialogButton" class="primary-button" type="submit">Done</button></form>
@@ -276,6 +303,17 @@
         <button id="saveBeforeReplaceButton" type="button">Save and replace</button>
         <button id="confirmReplaceButton" class="danger-button" type="button">Replace data</button>
       </div>
+    </dialog>
+    <dialog id="recoveryDialog" aria-labelledby="recoveryTitle" aria-describedby="recoveryDescription">
+      <h2 id="recoveryTitle">Continue your last map?</h2>
+      <p id="recoveryDescription">A local recovery copy is available in this browser, including unfinished place edits.</p>
+      <p id="recoveryProjectName" class="note"></p>
+      <div class="dialog-actions"><button id="discardRecoveryButton" type="button">Discard recovery</button><button id="restoreRecoveryButton" class="primary-button" type="button">Restore map</button></div>
+    </dialog>
+    <dialog id="newProjectDialog" aria-labelledby="newProjectTitle">
+      <h2 id="newProjectTitle">Start a new map?</h2>
+      <p>Save a project file to keep this map before starting a new one.</p>
+      <div class="dialog-actions"><button id="cancelNewProjectButton" type="button">Cancel</button><button id="saveNewProjectButton" type="button">Save and start new</button><button id="confirmNewProjectButton" class="danger-button" type="button">Start new</button></div>
     </dialog>
   </body>
 </html>

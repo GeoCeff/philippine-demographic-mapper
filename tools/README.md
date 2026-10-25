@@ -17,12 +17,13 @@ npm run data:validate
 npm run boundaries:build
 npm run boundaries:barangays
 npm run boundaries:detail
+npm run boundaries:full
 npm run boundaries:check
 ```
 
 `npm run data:build` is a fixture demonstration, not a countrywide boundary build. Check its configured output before running it over real generated data. The fixture validator (`npm run data:validate`) only reads the checked-in fixture outputs.
 
-`npm run boundaries:build` obtains the latest release manifest from `bendlikeabamboo/barangay-boundaries-repository`, verifies byte counts, SHA-256 and feature counts against its source files, and writes normalized app data. Matching cached raw files are reused. Different existing raw files cause an error instead of being replaced; select a separate `--raw` directory for a different release. Linked data paths are refused.
+`npm run boundaries:build` obtains the pinned `v2026.4.13.0` release manifest from `bendlikeabamboo/barangay-boundaries-repository`, verifies byte counts, SHA-256 and feature counts against its source files, and writes normalized app data. Matching cached raw files are reused. Different existing raw files cause an error instead of being replaced; select a separate `--raw` directory for a different release. Linked data paths are refused.
 
 `npm run boundaries:barangays` includes all available source barangay polygons, both a national file and region/province/city extracts. A later admin build retains and refreshes an existing same-release barangay build. All source polygon coordinates, multipolygons and holes are retained exactly; no extra simplification, synthetic geometry or polygon dissolve occurs.
 
@@ -33,12 +34,13 @@ The browser verifies compressed byte counts/SHA-256 and uses native gzip decompr
 For a reproducible complete source extract:
 
 ```powershell
-node tools/fetch-boundaries.mjs --include-barangays --release v2026.4.13.0
-node tools/check-boundaries.mjs
+npm run boundaries:full
 node --test tools/boundary-pipeline.test.mjs
 ```
 
-`npm run boundaries:check` rebuilds and then runs that checker. The checker verifies raw and generated checksums, exact source geometry, source record conservation, counts, and every indexed scope's membership. The unit tests cover canonical city mapping, unmatched/source IDs, duplicate records, polygon holes, malformed source inputs, and preserving different existing raw files.
+`npm run boundaries:full` builds the pinned overview, adds original detail, and validates the complete package. `npm run boundaries:check` only reads existing files. The checker verifies raw and generated checksums, exact source geometry, source record conservation, counts, and every indexed scope's membership, including all detailed gzip chunks and their original shapefile components. The unit tests cover canonical city mapping, unmatched/source IDs, duplicate records, polygon holes, malformed source inputs, and preserving different existing raw files.
+
+The general reconciliation pipeline stages boundaries, lookup, report and metadata before publishing any of them. Detail index and metadata are also published together. A failed publication restores the previous files; if the operating system also prevents rollback, the error identifies retained `.bak` files for recovery. Fault tests use temporary directories and do not modify active data.
 
 ## Output contract
 
@@ -55,7 +57,7 @@ City scopes resolve the source `ADM3_PCODE` to that city's canonical PSGC; for e
 
 ## Verified source and limits
 
-As checked on October 20, 2026, the [latest source release](https://github.com/bendlikeabamboo/barangay-boundaries-repository/releases/tag/v2026.4.13.0) is `v2026.4.13.0`, but its geometry is based on **PSGC October 24, 2023** and **NAMRIA November 6, 2023**. Its upstream Douglas–Peucker tolerance is `0.005°`; preserving those coordinates does not restore original unsimplified coastlines. The release's date is not the administrative snapshot date.
+The [pinned source release](https://github.com/bendlikeabamboo/barangay-boundaries-repository/releases/tag/v2026.4.13.0), `v2026.4.13.0`, uses **PSGC October 24, 2023** and **NAMRIA November 6, 2023**. Its overview Douglas–Peucker tolerance is `0.005°`; the separate detail build restores original source coordinates in scoped maps. The release's date is not the administrative snapshot date.
 
 The local full build preserves 17 region, 82 province, 1,635 city/municipal and 42,026 barangay polygon records. City records have 1,625 distinct canonical PSGC codes plus one unmatched record; barangays have 41,803 distinct codes. The [source classification report](https://github.com/bendlikeabamboo/barangay-boundaries-repository/releases/download/v2026.4.13.0/classification_report.json) identifies 230 PSGC entities without source polygons, including 198 barangays, and 14 missing Manila submunicipalities. It also contains fuzzy/repeated matches; polygon count is not a count of distinct places. These are countrywide historical extracts with explicitly incomplete coverage, not current complete official boundaries.
 
